@@ -208,6 +208,10 @@ public interface ChannelHandler {
      * <p>
      * This annotation is provided for documentation purpose, just like
      * <a href="http://www.javaconcurrencyinpractice.com/annotations/doc/">the JCIP annotations</a>.
+     *
+     * 指示注解了ChannelHandler 的相同实例能够增加到一个或者多个ChannelPipeline(多次),而不会发生竞争条件 ..
+     * 如果这个注解没有指定, 你必须每次创建一个新的处理器实例(将它增加到Pipeline中,因为它包含了非共享状态,例如成员变量) ..
+     * 这个注解 表示文档目的,就像  <a href="http://www.javaconcurrencyinpractice.com/annotations/doc/">the JCIP annotations</a>. ..
      */
     @Inherited
     @Documented

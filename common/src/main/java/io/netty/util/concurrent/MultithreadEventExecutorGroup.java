@@ -29,13 +29,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Abstract base class for {@link EventExecutorGroup} implementations that handles their tasks with multiple threads at
  * the same time.
+ * EventExecutorGroup实现 - 同时在多线程处理它们的任务 ...
  */
 public abstract class MultithreadEventExecutorGroup extends AbstractEventExecutorGroup {
 
     private final EventExecutor[] children;
     private final Set<EventExecutor> readonlyChildren;
     private final AtomicInteger terminatedChildren = new AtomicInteger();
-    private final Promise<?> terminationFuture = new DefaultPromise(GlobalEventExecutor.INSTANCE);
+    private final Promise<?> terminationFuture = new DefaultPromise(GlobalEventExecutor.INSTANCE); // 中断 Promise 使用全局事件Excutor .. (不影响 LoopGroup的处理..)
     private final EventExecutorChooserFactory.EventExecutorChooser chooser;
 
     /**
