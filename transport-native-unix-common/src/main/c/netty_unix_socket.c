@@ -435,6 +435,52 @@ static jobject _recvFromDomainSocket(JNIEnv* env, jint fd, void* buffer, jint po
     return createDomainDatagramSocketAddress(env, &addr, res, NULL);
 }
 
+static jint _send(JNIEnv* env, jclass clazz, jint fd, void* buffer, jint pos, jint limit) {
+    ssize_t res;
+    int err;
+    do {
+       res = send(fd, buffer + pos, (size_t) (limit - pos), 0);
+       // keep on writing if it was interrupted
+    } while (res == -1 && ((err = errno) == EINTR));
+
+    if (res < 0) {
+        return -err;
+    }
+    return (jint) res;
+}
+
+static jint netty_unix_socket_send(JNIEnv* env, jclass clazz, jint fd, jobject jbuffer, jint pos, jint limit) {
+    // We check that GetDirectBufferAddress will not return NULL in OnLoad
+    return _send(env, clazz, fd, (*env)->GetDirectBufferAddress(env, jbuffer), pos, limit);
+}
+
+static jint netty_unix_socket_sendAddress(JNIEnv* env, jclass clazz, jint fd, jlong address, jint pos, jint limit) {
+    return _send(env, clazz, fd, (void*) (intptr_t) address, pos, limit);
+}
+
+static jint _recv(JNIEnv* env, jclass clazz, jint fd, void* buffer, jint pos, jint limit) {
+    ssize_t res;
+    int err;
+    do {
+        res = recv(fd, buffer + pos, (size_t) (limit - pos), 0);
+        // Keep on reading if we was interrupted
+    } while (res == -1 && ((err = errno) == EINTR));
+
+    if (res < 0) {
+        return -err;
+    }
+    return (jint) res;
+}
+
+static jint netty_unix_socket_recv(JNIEnv* env, jclass clazz, jint fd, jobject jbuffer, jint pos, jint limit) {
+    // We check that GetDirectBufferAddress will not return NULL in OnLoad
+    return _recv(env, clazz, fd, (*env)->GetDirectBufferAddress(env, jbuffer), pos, limit);
+}
+
+static jint netty_unix_socket_recvAddress(JNIEnv* env, jclass clazz, jint fd, jlong address, jint pos, jint limit) {
+    return _recv(env, clazz, fd, (void*) (intptr_t) address, pos, limit);
+}
+
 void netty_unix_socket_getOptionHandleError(JNIEnv* env, int err) {
     netty_unix_socket_optionHandleError(env, err, "getsockopt() failed: ");
 }
@@ -536,11 +582,11 @@ static jint netty_unix_socket_finishConnect(JNIEnv* env, jclass clazz, jint fd) 
 }
 
 static jint netty_unix_socket_disconnect(JNIEnv* env, jclass clazz, jint fd, jboolean ipv6) {
+#ifndef __APPLE__
     struct sockaddr_storage addr;
     int len;
 
     memset(&addr, 0, sizeof(addr));
-
     // You can disconnect connection-less sockets by using AF_UNSPEC.
     // See man 2 connect.
     if (ipv6 == JNI_TRUE) {
@@ -552,11 +598,16 @@ static jint netty_unix_socket_disconnect(JNIEnv* env, jclass clazz, jint fd, jbo
         ipaddr->sin_family = AF_UNSPEC;
         len = sizeof(struct sockaddr_in);
     }
+#endif // __APPLE__
 
     int res;
     int err;
     do {
+#ifdef __APPLE__
+        res = disconnectx(fd, SAE_ASSOCID_ANY, SAE_CONNID_ANY);
+#else
         res = connect(fd, (struct sockaddr*) &addr, len);
+#endif // __APPLE__
     } while (res == -1 && ((err = errno) == EINTR));
 
     // EAFNOSUPPORT is harmless in this case.
@@ -1052,7 +1103,39 @@ static jint netty_unix_socket_isBroadcast(JNIEnv* env, jclass clazz, jint fd) {
     return optval;
 }
 
-static jint netty_unit_socket_msgFastopen(JNIEnv* env, jclass clazz) {
+static void netty_unix_socket_setIntOpt(JNIEnv* env, jclass clazz, jint fd, jint level, jint optname, jint optval) {
+    netty_unix_socket_setOption(env, fd, level, optname, &optval, sizeof(optval));
+}
+
+static void netty_unix_socket_setRawOptArray(JNIEnv* env, jclass clazz, jint fd, jint level, jint optname, jbyteArray inArray, jint offset, jint len) {
+    jbyte* optval = (*env)->GetByteArrayElements(env, inArray, 0);
+    netty_unix_socket_setOption(env, fd, level, optname, optval + offset, len);
+    (*env)->ReleaseByteArrayElements(env, inArray, optval, 0);
+}
+
+static void netty_unix_socket_setRawOptAddress(JNIEnv* env, jclass clazz, jint fd, jint level, jint optname, jlong inAddress, jint len) {
+    netty_unix_socket_setOption(env, fd, level, optname, (void *) inAddress, len);
+}
+
+static jint netty_unix_socket_getIntOpt(JNIEnv* env, jclass clazz, jint fd, jint level, jint optname) {
+    jint optval;
+    if (netty_unix_socket_getOption(env, fd, level, optname, &optval, sizeof(optval)) == -1) {
+        return -1;
+    }
+    return optval;
+}
+
+static void netty_unix_socket_getRawOptArray(JNIEnv* env, jclass clazz, jint fd, jint level, jint optname, jbyteArray outArray, jint offset, jint len) {
+    jbyte* optval = (*env)->GetByteArrayElements(env, outArray, 0);
+    netty_unix_socket_getOption(env, fd, level, optname, optval + offset, len);
+    (*env)->ReleaseByteArrayElements(env, outArray, optval, 0);
+}
+
+static void netty_unix_socket_getRawOptAddress(JNIEnv* env, jclass clazz, jint fd, jint level, jint optname, jlong outAddress, jint len) {
+    netty_unix_socket_getOption(env, fd, level, optname, (void *) outAddress, len);
+}
+
+static jint netty_unix_socket_msgFastopen(JNIEnv* env, jclass clazz) {
     return MSG_FASTOPEN;
 }
 
@@ -1083,6 +1166,10 @@ static const JNINativeMethod fixed_method_table[] = {
   // "recvFromAddress" has a dynamic signature
   // "recvFromDomainSocket" has a dynamic signature
   // "recvFromAddressDomainSocket" has a dynamic signature
+  { "send", "(ILjava/nio/ByteBuffer;II)I", (void *) netty_unix_socket_send },
+  { "sendAddress", "(IJII)I", (void *) netty_unix_socket_sendAddress },
+  { "recv", "(ILjava/nio/ByteBuffer;II)I", (void *) netty_unix_socket_recv },
+  { "recvAddress", "(IJII)I", (void *) netty_unix_socket_recvAddress },
   { "recvFd", "(I)I", (void *) netty_unix_socket_recvFd },
   { "sendFd", "(II)I", (void *) netty_unix_socket_sendFd },
   { "bindDomainSocket", "(I[B)I", (void *) netty_unix_socket_bindDomainSocket },
@@ -1108,7 +1195,13 @@ static const JNINativeMethod fixed_method_table[] = {
   { "getSoError", "(I)I", (void *) netty_unix_socket_getSoError },
   { "isIPv6Preferred0", "(Z)Z", (void *) netty_unix_socket_isIPv6Preferred0 },
   { "isIPv6", "(I)Z", (void *) netty_unix_socket_isIPv6 },
-  { "msgFastopen", "()I", (void *) netty_unit_socket_msgFastopen }
+  { "msgFastopen", "()I", (void *) netty_unix_socket_msgFastopen },
+  { "setIntOpt", "(IIII)V", (void *) netty_unix_socket_setIntOpt },
+  { "setRawOptArray", "(III[BII)V", (void *) netty_unix_socket_setRawOptArray },
+  { "setRawOptAddress", "(IIIJI)V", (void *) netty_unix_socket_setRawOptAddress },
+  { "getIntOpt", "(III)I", (void *) netty_unix_socket_getIntOpt },
+  { "getRawOptArray", "(III[BII)V", (void *) netty_unix_socket_getRawOptArray },
+  { "getRawOptAddress", "(IIIJI)V", (void *) netty_unix_socket_getRawOptAddress }
 };
 static const jint fixed_method_table_size = sizeof(fixed_method_table) / sizeof(fixed_method_table[0]);
 

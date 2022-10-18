@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 The Netty Project
+ * Copyright 2022 The Netty Project
  *
  * The Netty Project licenses this file to you under the Apache License,
  * version 2.0 (the "License"); you may not use this file except in compliance
@@ -13,15 +13,18 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
-package io.netty.util.concurrent;
+package io.netty.handler;
 
+import io.netty.nativeimage.ChannelHandlerMetadataUtil;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Assertions;
 
-public class ScheduledFutureTaskTest {
+public class NativeImageHandlerMetadataTest {
 
     @Test
-    public void testDeadlineNanosNotOverflow() {
-        Assertions.assertEquals(Long.MAX_VALUE, ScheduledFutureTask.deadlineNanos(Long.MAX_VALUE));
+    public void collectAndCompareMetadata() {
+        ChannelHandlerMetadataUtil.generateMetadata(
+                "handler-handlers/reflect-config.json",
+                "io.netty.handler");
     }
+
 }

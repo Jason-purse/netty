@@ -37,6 +37,10 @@ import io.netty.util.internal.StringUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
+import org.mockito.MockingDetails;
+import org.mockito.invocation.Invocation;
+
+import java.lang.reflect.Method;
 
 import static io.netty.handler.codec.http2.HpackDecoder.decodeULE128;
 import static io.netty.handler.codec.http2.Http2HeadersEncoder.NEVER_SENSITIVE;
@@ -49,6 +53,7 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -421,6 +426,18 @@ public class HpackDecoderTest {
         }
         decode(sb.toString());
         verify(mockHeaders).add(of(":authority"), of(value));
+        MockingDetails details = mockingDetails(mockHeaders);
+        for (Invocation invocation : details.getInvocations()) {
+            Method method = invocation.getMethod();
+            if ("authority".equals(method.getName())
+                    && invocation.getArguments().length == 0) {
+                invocation.markVerified();
+            } else if ("contains".equals(method.getName())
+                    && invocation.getArguments().length == 1
+                    && invocation.getArgument(0).equals(of(":authority"))) {
+                invocation.markVerified();
+            }
+        }
         verifyNoMoreInteractions(mockHeaders);
         reset(mockHeaders);
 
@@ -646,11 +663,11 @@ public class HpackDecoderTest {
         try {
             HpackEncoder hpackEncoder = new HpackEncoder(true);
 
-            Http2Headers toEncode = new DefaultHttp2Headers();
+            Http2Headers toEncode = new DefaultHttp2Headers(false);
             toEncode.add(":test", "1");
             hpackEncoder.encodeHeaders(1, in, toEncode, NEVER_SENSITIVE);
 
-            final Http2Headers decoded = new DefaultHttp2Headers();
+            final Http2Headers decoded = new DefaultHttp2Headers(true);
 
             assertThrows(Http2Exception.StreamException.class, new Executable() {
                 @Override
@@ -669,13 +686,13 @@ public class HpackDecoderTest {
         try {
             HpackEncoder hpackEncoder = new HpackEncoder(true);
 
-            Http2Headers toEncode = new DefaultHttp2Headers();
+            Http2Headers toEncode = new DefaultHttp2Headers(false);
             toEncode.add(":test", "1");
             toEncode.add(":status", "200");
             toEncode.add(":method", "GET");
             hpackEncoder.encodeHeaders(1, in, toEncode, NEVER_SENSITIVE);
 
-            Http2Headers decoded = new DefaultHttp2Headers();
+            Http2Headers decoded = new DefaultHttp2Headers(false);
 
             hpackDecoder.decode(1, in, decoded, false);
 

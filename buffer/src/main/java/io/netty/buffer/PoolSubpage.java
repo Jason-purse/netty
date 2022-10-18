@@ -16,6 +16,8 @@
 
 package io.netty.buffer;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 import static io.netty.buffer.PoolChunk.RUN_OFFSET_SHIFT;
 import static io.netty.buffer.PoolChunk.SIZE_SHIFT;
 import static io.netty.buffer.PoolChunk.IS_USED_SHIFT;
@@ -39,6 +41,8 @@ final class PoolSubpage<T> implements PoolSubpageMetric {
     private int bitmapLength;
     private int nextAvail;
     private int numAvail;
+
+    private final ReentrantLock lock = new ReentrantLock();
 
     // TODO: Test if adding padding helps under contention
     //private long pad0, pad1, pad2, pad3, pad4, pad5, pad6, pad7;
@@ -86,6 +90,12 @@ final class PoolSubpage<T> implements PoolSubpageMetric {
         }
 
         final int bitmapIdx = getNextAvail();
+        if (bitmapIdx < 0) {
+            removeFromPool(); // Subpage appear to be in an invalid state. Remove to prevent repeated errors.
+            throw new AssertionError("No next available bitmap index found (bitmapIdx = " + bitmapIdx + "), " +
+                    "even though there are supposed to be (numAvail = " + numAvail + ") " +
+                    "out of (maxNumElems = " + maxNumElems + ") available indexes.");
+        }
         int q = bitmapIdx >>> 6;
         int r = bitmapIdx & 63;
         assert (bitmap[q] >>> r & 1) == 0;
@@ -221,7 +231,8 @@ final class PoolSubpage<T> implements PoolSubpageMetric {
             numAvail = 0;
             elemSize = -1;
         } else {
-            synchronized (chunk.arena) {
+            chunk.arena.lock();
+            try {
                 if (!this.doNotDestroy) {
                     doNotDestroy = false;
                     // Not used for creating the String.
@@ -232,6 +243,8 @@ final class PoolSubpage<T> implements PoolSubpageMetric {
                     numAvail = this.numAvail;
                     elemSize = this.elemSize;
                 }
+            } finally {
+                chunk.arena.unlock();
             }
         }
 
@@ -249,9 +262,11 @@ final class PoolSubpage<T> implements PoolSubpageMetric {
             // It's the head.
             return 0;
         }
-
-        synchronized (chunk.arena) {
+        chunk.arena.lock();
+        try {
             return maxNumElems;
+        } finally {
+            chunk.arena.unlock();
         }
     }
 
@@ -262,8 +277,11 @@ final class PoolSubpage<T> implements PoolSubpageMetric {
             return 0;
         }
 
-        synchronized (chunk.arena) {
+        chunk.arena.lock();
+        try {
             return numAvail;
+        } finally {
+            chunk.arena.unlock();
         }
     }
 
@@ -274,8 +292,11 @@ final class PoolSubpage<T> implements PoolSubpageMetric {
             return -1;
         }
 
-        synchronized (chunk.arena) {
+        chunk.arena.lock();
+        try {
             return elemSize;
+        } finally {
+            chunk.arena.unlock();
         }
     }
 
@@ -288,5 +309,13 @@ final class PoolSubpage<T> implements PoolSubpageMetric {
         if (chunk != null) {
             chunk.destroy();
         }
+    }
+
+    void lock() {
+        lock.lock();
+    }
+
+    void unlock() {
+        lock.unlock();
     }
 }

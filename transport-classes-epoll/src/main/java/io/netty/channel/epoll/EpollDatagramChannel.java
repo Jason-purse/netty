@@ -30,7 +30,6 @@ import io.netty.channel.socket.DatagramPacket;
 import io.netty.channel.socket.InternetProtocolFamily;
 import io.netty.channel.unix.Errors;
 import io.netty.channel.unix.Errors.NativeIoException;
-import io.netty.channel.unix.Socket;
 import io.netty.channel.unix.UnixChannelUtil;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.UncheckedBooleanSupplier;
@@ -89,9 +88,7 @@ public final class EpollDatagramChannel extends AbstractEpollChannel implements 
      * on the Operation Systems default which will be chosen.
      */
     public EpollDatagramChannel(InternetProtocolFamily family) {
-        this(family == null ?
-                newSocketDgram(Socket.isIPv6Preferred()) : newSocketDgram(family == InternetProtocolFamily.IPv6),
-                false);
+        this(newSocketDgram(family), false);
     }
 
     /**
@@ -123,7 +120,6 @@ public final class EpollDatagramChannel extends AbstractEpollChannel implements 
     }
 
     @Override
-    @SuppressWarnings("deprecation")
     public boolean isActive() {
         return socket.isOpen() && (config.getActiveOnOpen() && isRegistered() || active);
     }
@@ -179,13 +175,30 @@ public final class EpollDatagramChannel extends AbstractEpollChannel implements 
         ObjectUtil.checkNotNull(multicastAddress, "multicastAddress");
         ObjectUtil.checkNotNull(networkInterface, "networkInterface");
 
+        if (eventLoop().inEventLoop()) {
+            joinGroup0(multicastAddress, networkInterface, source, promise);
+        } else {
+            eventLoop().execute(new Runnable() {
+                @Override
+                public void run() {
+                    joinGroup0(multicastAddress, networkInterface, source, promise);
+                }
+            });
+        }
+        return promise;
+    }
+
+    private void joinGroup0(
+            final InetAddress multicastAddress, final NetworkInterface networkInterface,
+            final InetAddress source, final ChannelPromise promise) {
+        assert eventLoop().inEventLoop();
+
         try {
             socket.joinGroup(multicastAddress, networkInterface, source);
             promise.setSuccess();
         } catch (IOException e) {
             promise.setFailure(e);
         }
-        return promise;
     }
 
     @Override
@@ -230,13 +243,30 @@ public final class EpollDatagramChannel extends AbstractEpollChannel implements 
         ObjectUtil.checkNotNull(multicastAddress, "multicastAddress");
         ObjectUtil.checkNotNull(networkInterface, "networkInterface");
 
+        if (eventLoop().inEventLoop()) {
+            leaveGroup0(multicastAddress, networkInterface, source, promise);
+        } else {
+            eventLoop().execute(new Runnable() {
+                @Override
+                public void run() {
+                    leaveGroup0(multicastAddress, networkInterface, source, promise);
+                }
+            });
+        }
+        return promise;
+    }
+
+    private void leaveGroup0(
+            final InetAddress multicastAddress, final NetworkInterface networkInterface, final InetAddress source,
+            final ChannelPromise promise) {
+        assert eventLoop().inEventLoop();
+
         try {
             socket.leaveGroup(multicastAddress, networkInterface, source);
             promise.setSuccess();
         } catch (IOException e) {
             promise.setFailure(e);
         }
-        return promise;
     }
 
     @Override
@@ -254,7 +284,7 @@ public final class EpollDatagramChannel extends AbstractEpollChannel implements 
         ObjectUtil.checkNotNull(sourceToBlock, "sourceToBlock");
         ObjectUtil.checkNotNull(networkInterface, "networkInterface");
 
-        promise.setFailure(new UnsupportedOperationException("Multicast not supported"));
+        promise.setFailure(new UnsupportedOperationException("Multicast block not supported"));
         return promise;
     }
 
@@ -539,10 +569,10 @@ public final class EpollDatagramChannel extends AbstractEpollChannel implements 
             int writerIndex = byteBuf.writerIndex();
             int localReadAmount;
             if (byteBuf.hasMemoryAddress()) {
-                localReadAmount = socket.readAddress(byteBuf.memoryAddress(), writerIndex, writerIndex + writable);
+                localReadAmount = socket.recvAddress(byteBuf.memoryAddress(), writerIndex, writerIndex + writable);
             } else {
                 ByteBuffer buf = byteBuf.internalNioBuffer(writerIndex, writable);
-                localReadAmount = socket.read(buf, buf.position(), buf.limit());
+                localReadAmount = socket.recv(buf, buf.position(), buf.limit());
             }
 
             if (localReadAmount <= 0) {
@@ -613,7 +643,7 @@ public final class EpollDatagramChannel extends AbstractEpollChannel implements 
 
     private static void processPacket(ChannelPipeline pipeline, EpollRecvByteAllocatorHandle handle,
                                       int bytesRead, DatagramPacket packet) {
-        handle.lastBytesRead(bytesRead);
+        handle.lastBytesRead(Math.max(1, bytesRead)); // Avoid signalling end-of-data for zero-sized datagrams.
         handle.incMessagesRead(1);
         pipeline.fireChannelRead(packet);
     }
@@ -621,7 +651,7 @@ public final class EpollDatagramChannel extends AbstractEpollChannel implements 
     private static void processPacketList(ChannelPipeline pipeline, EpollRecvByteAllocatorHandle handle,
                                           int bytesRead, RecyclableArrayList packetList) {
         int messagesRead = packetList.size();
-        handle.lastBytesRead(bytesRead);
+        handle.lastBytesRead(Math.max(1, bytesRead)); // Avoid signalling end-of-data for zero-sized datagrams.
         handle.incMessagesRead(messagesRead);
         for (int i = 0; i < messagesRead; i++) {
             pipeline.fireChannelRead(packetList.set(i, Unpooled.EMPTY_BUFFER));
@@ -642,7 +672,7 @@ public final class EpollDatagramChannel extends AbstractEpollChannel implements 
             NativeDatagramPacketArray.NativeDatagramPacket msg = array.packets()[0];
 
             int bytesReceived = socket.recvmsg(msg);
-            if (bytesReceived == 0) {
+            if (!msg.hasSender()) {
                 allocHandle.lastBytesRead(-1);
                 return false;
             }
