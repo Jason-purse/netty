@@ -49,6 +49,11 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>When not used in a {@link ServerBootstrap} context, the {@link #bind()} methods are useful for connectionless
  * transports such as datagram (UDP).</p>
+ *
+ *
+ * 它是一个帮助类 让开发者能够更容易引导一个Channel ..
+ * 它支持方法链提供一个容易的方式去配置AbstractBootstrap ..
+ * 当不在ServerBootstrap 上下文中使用时, bind方法是有用的(例如 进行无连接数据包传输) ...
  */
 public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C extends Channel> implements Cloneable {
     @SuppressWarnings("unchecked")
@@ -56,13 +61,22 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     @SuppressWarnings("unchecked")
     private static final Map.Entry<AttributeKey<?>, Object>[] EMPTY_ATTRIBUTE_ARRAY = new Map.Entry[0];
 
+    // 事件循环组 ..
+    // 本质上我们已经知道,可以使用它引导当前的Channel 在什么EventExecutor 上进行调度 ...
     volatile EventLoopGroup group;
+
+    // 它应该生产什么样的一个Channel ...
     @SuppressWarnings("deprecation")
     private volatile ChannelFactory<? extends C> channelFactory;
+
+    // 本地地址
+    // 作为服务器 它可以作为bind的端口地址
+    //作为客户端, 表示本地地址 ..
     private volatile SocketAddress localAddress;
 
     // The order in which ChannelOptions are applied is important they may depend on each other for validation
     // purposes.
+    // 顺序非常重要,可能需要对于验证的目的 需要依赖于其他的项 ...
     private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> attrs = new ConcurrentHashMap<AttributeKey<?>, Object>();
     private volatile ChannelHandler handler;
@@ -199,11 +213,14 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     /**
      * Validate all the parameters. Sub-classes may override this, but should
      * call the super method in that case.
+     *
+     * 验证所有的参数,子类也许可以覆盖它,但是应该合适的调用超类方法 ...
      */
     public B validate() {
         if (group == null) {
             throw new IllegalStateException("group not set");
         }
+        // 表示你应该创造哪一种管道 ...
         if (channelFactory == null) {
             throw new IllegalStateException("channel or channelFactory not set");
         }
@@ -221,6 +238,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     /**
      * Create a new {@link Channel} and register it with an {@link EventLoop}.
+     * 当创建一个新的Channel 并使用一个EventLoop 注册它
      */
     public ChannelFuture register() {
         validate();
@@ -341,6 +359,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return regFuture;
     }
 
+    /**
+     * bootstrap 核心方法,初始化 ...
+     * @param channel channel(在channel 被acceptor accept之后) ...
+     * @throws Exception exception ..
+     */
     abstract void init(Channel channel) throws Exception;
 
     private static void doBind0(

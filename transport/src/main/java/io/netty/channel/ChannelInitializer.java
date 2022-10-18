@@ -29,9 +29,17 @@ import java.util.concurrent.ConcurrentHashMap;
  * A special {@link ChannelInboundHandler} which offers an easy way to initialize a {@link Channel} once it was
  * registered to its {@link EventLoop}.
  *
+ * 他是一个特定的ChannelInboundHandler 它提供了以一种简单的方式初始化一个Channel(一旦它已经注册到自己的EventLoop上) ...
+ *
  * Implementations are most often used in the context of {@link Bootstrap#handler(ChannelHandler)} ,
  * {@link ServerBootstrap#handler(ChannelHandler)} and {@link ServerBootstrap#childHandler(ChannelHandler)} to
  * setup the {@link ChannelPipeline} of a {@link Channel}.
+ *
+ * 实现一般使用在Bootstrap#handler(ChannelHandler)的上下文中 ...
+ * 那这里的上下文所的是 Bootstrap ... (有可能是服务器端或者客户端) ...
+ *
+ * 例如ServerBootstrap#handler(ChannelHandler) /  ServerBootstrap#childHandler(ChannelHandler) 用来配置一个Channel 的ChannelPipeline ...
+ *
  *
  * <pre>
  *
@@ -46,7 +54,17 @@ import java.util.concurrent.ConcurrentHashMap;
  * bootstrap.childHandler(new MyChannelInitializer());
  * ...
  * </pre>
+ *
+ * 切记这里标记为一个 Sharable(那么实现必须时线程安全的,为了能够重用) ...
  * Be aware that this class is marked as {@link Sharable} and so the implementation must be safe to be re-used.
+ *
+ *
+ * 那么从这里我们完全已知,Sharable 本身是一种共享的行为,也就是说它同时可以添加到多个事件循环组中,不会产生竞争条件 ...
+ * 并且它将对所有的Channel 共享,这是我所理解的Sharable ...
+ *
+ *
+ * 总结:
+ * ChannelInitializer 是用来配置一个Channel的Pipeline 如何工作 ...
  *
  * @param <C>   A sub-type of {@link Channel}
  */

@@ -41,6 +41,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * {@link Bootstrap} sub-class which allows easy bootstrap of {@link ServerChannel}
  *
+ * 这个类是用来引导一个 ServerChannel ...的Bootstrap的子类 ...
+ *
  */
 public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerChannel> {
 
@@ -92,6 +94,9 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
      * Allow to specify a {@link ChannelOption} which is used for the {@link Channel} instances once they get created
      * (after the acceptor accepted the {@link Channel}). Use a value of {@code null} to remove a previous set
      * {@link ChannelOption}.
+     *
+     * 允许指定一个ChannelOption(它将使用到 Channel 实例), 一旦它们被创建(在Channel -  已经被acceptor (接收器) 接受的) ..
+     * 通过设置 null 移除前面的一个ChannelOption 设置 ...
      */
     public <T> ServerBootstrap childOption(ChannelOption<T> childOption, T value) {
         ObjectUtil.checkNotNull(childOption, "childOption");

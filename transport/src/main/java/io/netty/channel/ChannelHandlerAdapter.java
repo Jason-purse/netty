@@ -23,6 +23,7 @@ import java.util.Map;
 
 /**
  * Skeleton implementation of a {@link ChannelHandler}.
+ * 这是一个ChannelHandler的骨架实现 ...
  */
 public abstract class ChannelHandlerAdapter implements ChannelHandler {
 
