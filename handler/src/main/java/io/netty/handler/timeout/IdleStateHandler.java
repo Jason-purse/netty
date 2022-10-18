@@ -31,8 +31,17 @@ import io.netty.util.internal.ObjectUtil;
 import java.util.concurrent.TimeUnit;
 
 /**
+ * 当一个Channel 有一会没有指定读 / 写 或者 读写操作时触发一个IdleStateEvent ..
+ *
+ *
  * Triggers an {@link IdleStateEvent} when a {@link Channel} has not performed
  * read, write, or both operation for a while.
+ *
+ *  支持的idle 状态  ..
+ *  属性                           含义
+ *  readerIdleTime                 IdleState#READER_IDLE 将触发一个空闲状态事件(当没有读操作执行  在指定时间期间内) ... 指定 0 表示禁用 ...
+ *  writerIdleTime                 IdleState#WRITER_IDLE 将触发一个空闲状态事件(当没有写操作执行  在指定时间期间内) ... 指定 0 表示禁用 ...
+ *  allIdleTime                    IdleState#ALL_IDLE    将触发一个空闲状态事件(当没有读 / 写操作执行 在指定时间期间内)  指定 0 表示禁用 ...
  *
  * <h3>Supported idle states</h3>
  * <table border="1">
@@ -59,6 +68,9 @@ import java.util.concurrent.TimeUnit;
  * </tr>
  * </table>
  *
+ *
+ * 举个例子, 当在30秒内没有流量输出(发送一个ping 消息) ..
+ * 这个连接将会关闭(如果在60秒内没有流量输入) ..
  * <pre>
  * // An example that sends a ping message when there is no outbound traffic
  * // for 30 seconds.  The connection is closed when there is no inbound traffic
@@ -71,6 +83,9 @@ import java.util.concurrent.TimeUnit;
  *         channel.pipeline().addLast("myHandler", new MyHandler());
  *     }
  * }
+ *
+ *
+ * // 处理由 IdleStateHandler 触发的事件 ...
  *
  * // Handler should handle the {@link IdleStateEvent} triggered by {@link IdleStateHandler}.
  * public class MyHandler extends {@link ChannelDuplexHandler} {

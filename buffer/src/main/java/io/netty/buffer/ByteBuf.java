@@ -1568,6 +1568,9 @@ public abstract class ByteBuf implements ReferenceCounted, Comparable<ByteBuf>, 
      * The returned buffer's {@code readerIndex} and {@code writerIndex} are
      * {@code 0} and {@code length} respectively.
      *
+     * 传输这个buffer的数据到一个新创建的buffer(从当前 readerIndex 开始转移) 并且增加readerIndex(根据传递的字节数量( = bytes.length))
+     * 这个返回的缓冲区的readerIndex 以及  writerIndex 各自是 0 以及 length ...
+     *
      * @param length the number of bytes to transfer
      *
      * @return the newly created buffer which contains the transferred bytes

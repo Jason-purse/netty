@@ -191,6 +191,15 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
     private final int lengthFieldOffset;
     private final int lengthFieldLength;
     private final int lengthFieldEndOffset;
+    /**
+     * 长度补偿 ...
+     * 根据上面的java doc 解释 ..
+     * 一个帧的长度的字段的偏距,可以设置, 长度字段的大小可以设置 ...
+     *
+     * 那么无论那种情况,我们都能够解析处理 ..
+     *
+     * 不管是 紧紧包含message body 长度 / 还是 整体消息长度的情况下(我们都能够根据这些参数进行调整,获取到想要的消息体)
+     */
     private final int lengthAdjustment;
     private final int initialBytesToStrip;
     private final boolean failFast;
