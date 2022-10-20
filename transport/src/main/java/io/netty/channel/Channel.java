@@ -262,6 +262,8 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
         /**
          * Closes the {@link Channel} immediately without firing any events.  Probably only useful
          * when registration attempt failed.
+         *
+         * 仅当注册管道尝试失败时 立即关闭管道而不触发任何事件 ...
          */
         void closeForcibly();
 

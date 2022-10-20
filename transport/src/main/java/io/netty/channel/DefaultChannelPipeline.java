@@ -120,17 +120,25 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return new DefaultChannelHandlerContext(this, childExecutor(group), name, handler);
     }
 
+    // child executor ..
     private EventExecutor childExecutor(EventExecutorGroup group) {
         if (group == null) {
             return null;
         }
+
+        // 指定事件执行器的标志
         Boolean pinEventExecutor = channel.config().getOption(ChannelOption.SINGLE_EVENTEXECUTOR_PER_GROUP);
+
+        // 不绑定,那么在channel上进行事件触发(使用随机的 事件执行器)
         if (pinEventExecutor != null && !pinEventExecutor) {
             return group.next();
         }
+
         Map<EventExecutorGroup, EventExecutor> childExecutors = this.childExecutors;
         if (childExecutors == null) {
             // Use size of 4 as most people only use one extra EventExecutor.
+            // 大多数情况下 4 已经够了 ...
+            // IdentityHashMap 根据引用进行 对象比较,其他的和HashMap 无差别 ...
             childExecutors = this.childExecutors = new IdentityHashMap<EventExecutorGroup, EventExecutor>(4);
         }
         // Pin one of the child executors once and remember it so that the same child executor
@@ -198,6 +206,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     @Override
     public final ChannelPipeline addLast(EventExecutorGroup group, String name, ChannelHandler handler) {
         final AbstractChannelHandlerContext newCtx;
+        // pipeline 加锁
         synchronized (this) {
             checkMultiplicity(handler);
 
@@ -593,6 +602,8 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     }
 
     private static void checkMultiplicity(ChannelHandler handler) {
+
+        // 假设它不是??,那就不进行处理了?
         if (handler instanceof ChannelHandlerAdapter) {
             ChannelHandlerAdapter h = (ChannelHandlerAdapter) handler;
             if (!h.isSharable() && h.added) {

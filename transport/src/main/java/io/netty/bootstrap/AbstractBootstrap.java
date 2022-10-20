@@ -289,6 +289,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
+        // 初始化并注册 ...
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
@@ -324,13 +325,19 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         }
     }
 
+    /**
+     * 初始化以及注册过程 ..
+     * @return
+     */
     final ChannelFuture initAndRegister() {
+
         Channel channel = null;
         try {
             channel = channelFactory.newChannel();
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
+                // 无法创建新的管道 ...
                 // channel can be null if newChannel crashed (eg SocketException("too many open files"))
                 channel.unsafe().closeForcibly();
                 // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
