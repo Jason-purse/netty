@@ -153,6 +153,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                     pipeline.addLast(handler);
                 }
 
+                //这个时候,channel肯定是创建好,并且可以初始化了 ..
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {

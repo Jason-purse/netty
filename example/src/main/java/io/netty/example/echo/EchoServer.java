@@ -29,6 +29,10 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContext;
 
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ServerSocketChannel;
+
 /**
  * Echoes back any received data from a client.
  */
@@ -61,6 +65,14 @@ public final class EchoServer {
                      p.addLast(serverHandler);
                  }
              });
+
+
+            ByteBuffer allocate = ByteBuffer.allocate(123);
+
+            new FileChannel(){
+
+            }.read(allocate)
+
 
             // Start the server.
             ChannelFuture f = b.bind(PORT).sync();

@@ -23,6 +23,9 @@ import io.netty.util.internal.UnstableApi;
 
 import java.util.concurrent.TimeUnit;
 
+/**
+ * void future, 表示仅仅接受一个Channel的待确认状态 ...
+ */
 @UnstableApi
 public final class VoidChannelPromise extends AbstractFuture<Void> implements ChannelPromise {
 

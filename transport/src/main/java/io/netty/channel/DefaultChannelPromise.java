@@ -26,6 +26,9 @@ import static io.netty.util.internal.ObjectUtil.checkNotNull;
 /**
  * The default {@link ChannelPromise} implementation.  It is recommended to use {@link Channel#newPromise()} to create
  * a new {@link ChannelPromise} rather than calling the constructor explicitly.
+ *
+ *
+ * 默认的ChannelPrormise 实现, 推荐使用Channel#newPromise 创建一个新的ChannelPromise 而不是显式的调用构造器 ...
  */
 public class DefaultChannelPromise extends DefaultPromise<Void> implements ChannelPromise, FlushCheckpoint {
 
