@@ -54,6 +54,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     private volatile SocketAddress localAddress;
     private volatile SocketAddress remoteAddress;
     private volatile EventLoop eventLoop;
+    // 是否已经注册了 ...
     private volatile boolean registered;
     private boolean closeInitiated;
     private Throwable initialCloseCause;
@@ -464,10 +465,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
             ObjectUtil.checkNotNull(eventLoop, "eventLoop");
+
             if (isRegistered()) {
                 promise.setFailure(new IllegalStateException("registered to an event loop already"));
                 return;
             }
+
             if (!isCompatible(eventLoop)) {
                 promise.setFailure(
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
@@ -497,6 +500,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
+        // 注册的核心逻辑,决定了ChannelHandler 方法回调 ...
+
+        /**
+         * 异步回调(如果不在channel 对应的事件循环中) ...
+         * @param promise
+         */
         private void register0(ChannelPromise promise) {
             try {
                 // check if the channel is still open as it could be closed in the mean time when the register
@@ -511,16 +520,31 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
+
+                // 在通知promise 之前执行 handlerAdded(..),这样用户派发的事件将不会被丢失 ..
                 pipeline.invokeHandlerAddedIfNeeded();
 
                 safeSetSuccess(promise);
+
+                // 开始触发管道注册 ...
                 pipeline.fireChannelRegistered();
+
+
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
+                // 一旦管道已经注册, 触发channelActive, 这将阻止触发多次管道激活(如果这个管道已经取消注册或者重新注册) ...
                 if (isActive()) {
+
+                    // 意味着仅仅触发一次 ..
                     if (firstRegistration) {
+
+                        // 管道激活
                         pipeline.fireChannelActive();
-                    } else if (config().isAutoRead()) {
+                    }
+
+                    // 否则 配置是自动读的?(也就是多次注册,则
+                    else if (config().isAutoRead()) {
+                        // 表示这个管道已经注册完毕(并且autoRead已经设置),这意味着我们需要开始读取(因此能够处理输入数据) ..
                         // This channel was registered before and autoRead() is set. This means we need to begin read
                         // again so that we process inbound data.
                         //
@@ -828,6 +852,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
         @Override
         public final void beginRead() {
+            // 断言事件循环(必须在事件循环组中) ...
             assertEventLoop();
 
             try {

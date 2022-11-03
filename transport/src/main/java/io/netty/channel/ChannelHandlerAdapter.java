@@ -27,6 +27,9 @@ import java.util.Map;
  */
 public abstract class ChannelHandlerAdapter implements ChannelHandler {
 
+    // 不需要使用volatile , 因为它仅仅 进行健全性检查 ...
+    // 但是其本质上 放在了一个锁加持的情况下进行判断的 ...
+    // @see io.netty.channel.DefaultChannelPipeline.addLast(io.netty.util.concurrent.EventExecutorGroup, java.lang.String, io.netty.channel.ChannelHandler)
     // Not using volatile because it's used only for a sanity check.
     boolean added;
 
@@ -45,6 +48,10 @@ public abstract class ChannelHandlerAdapter implements ChannelHandler {
      */
     public boolean isSharable() {
         /**
+         *
+         * 缓存 Sharable注解的 检测(解决 一个条件), 使用ThreadLocal 以及 WeakHashMap 消除 volatile 写 / 读 ...
+         * 为每一个线程使用不同的WeakHashMap 是足够好的,并且 线程的数量能够得到限制 ...
+         *
          * Cache the result of {@link Sharable} annotation detection to workaround a condition. We use a
          * {@link ThreadLocal} and {@link WeakHashMap} to eliminate the volatile write/reads. Using different
          * {@link WeakHashMap} instances per {@link Thread} is good enough for us and the number of
@@ -53,9 +60,13 @@ public abstract class ChannelHandlerAdapter implements ChannelHandler {
          * See <a href="https://github.com/netty/netty/issues/2289">#2289</a>.
          */
         Class<?> clazz = getClass();
+        // 从线程的安全变量上去获取 SharableCache, 操作是安全的 ...
         Map<Class<?>, Boolean> cache = InternalThreadLocalMap.get().handlerSharableCache();
         Boolean sharable = cache.get(clazz);
+
         if (sharable == null) {
+            // 有人说 java7中,这个方法下面是同步方法调用,导致多个线程阻塞 ...
+            // 相当于每一个线程,同样还是可能需要去调用一次, 但是每个线程仅仅被阻塞一次 ..
             sharable = clazz.isAnnotationPresent(Sharable.class);
             cache.put(clazz, sharable);
         }

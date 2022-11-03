@@ -32,6 +32,10 @@ public interface ChannelPromise extends ChannelFuture, Promise<Void> {
 
     ChannelPromise setSuccess();
 
+    /**
+     * 尝试设置成功 ..
+     * @return
+     */
     boolean trySuccess();
 
     @Override

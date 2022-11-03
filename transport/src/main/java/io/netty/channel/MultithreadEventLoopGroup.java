@@ -29,6 +29,8 @@ import java.util.concurrent.ThreadFactory;
 /**
  * Abstract base class for {@link EventLoopGroup} implementations that handles their tasks with multiple threads at
  * the same time.
+ *
+ * 多线程事件循环组的 EventLoopGroup 抽象实现(通过同时在多个线程上处理他们的任务) ...
  */
 public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutorGroup implements EventLoopGroup {
 
@@ -37,6 +39,8 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
     private static final int DEFAULT_EVENT_LOOP_THREADS;
 
     static {
+        // 单核线程的CPU .. Or 多核CPU
+        // 就算是 1核,也就有可能虚拟成几核 ...(这是CPU 工艺上的技术细节) ..
         DEFAULT_EVENT_LOOP_THREADS = Math.max(1, SystemPropertyUtil.getInt(
                 "io.netty.eventLoopThreads", NettyRuntime.availableProcessors() * 2));
 
@@ -94,6 +98,7 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
     @Deprecated
     @Override
     public ChannelFuture register(Channel channel, ChannelPromise promise) {
+        // 对于多线程事件循环器, 随便拿取一个线程进行 Channel 注册 ...
         return next().register(channel, promise);
     }
 

@@ -492,9 +492,12 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
         @Override
         public <T> boolean setOption(ChannelOption<T> option, T value) {
+
+            // 如果jdk 大于等于7,并且 是NIO ChannelOption ..
             if (PlatformDependent.javaVersion() >= 7 && option instanceof NioChannelOption) {
                 return NioChannelOption.setOption(jdkChannel(), (NioChannelOption<T>) option, value);
             }
+            // 否则正常设置
             return super.setOption(option, value);
         }
 
@@ -523,6 +526,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         }
 
         private void calculateMaxBytesPerGatheringWrite() {
+            // 将缓冲区乘以2 能够提供一些额外的空间,让os 能够更快的处理数据 ...
             // Multiply by 2 to give some extra space in case the OS can process write data faster than we can provide.
             int newSendBufferSize = getSendBufferSize() << 1;
             if (newSendBufferSize > 0) {

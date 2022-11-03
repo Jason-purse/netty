@@ -103,6 +103,10 @@ public interface ChannelOutboundInvoker {
      * Request to bind to the given {@link SocketAddress} and notify the {@link ChannelFuture} once the operation
      * completes, either because the operation was successful or because of an error.
      *
+     * 请求绑定到给定的SocketAddress 并通知ChannelFuture(一旦这个操作完成),要么由于操作成功或者失败 ...
+     * 给定的ChannelPromise 将会得到通知 ...
+     * 这将导致Channel的ChannelPipeline中的ChannelOutboundHandler#bind(...)方法调用 ...
+     *
      * The given {@link ChannelPromise} will be notified.
      * <p>
      * This will result in having the

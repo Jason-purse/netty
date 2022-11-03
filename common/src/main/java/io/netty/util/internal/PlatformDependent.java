@@ -75,6 +75,10 @@ import static java.lang.Math.min;
  * <p>
  * You can disable the use of {@code sun.misc.Unsafe} if you specify
  * the system property <strong>io.netty.noUnsafe</strong>.
+ *
+ * 检测各种特定于当前运行时环境的工具类,例如Java 版本 以及 sun.misc.Unsafe对象的可用性 ..
+ *
+ * 你能够禁用sun.misc.Unsafe的使用(通过指定系统属性 io.netty.noUnsafe) ...
  */
 public final class PlatformDependent {
 
@@ -87,6 +91,7 @@ public final class PlatformDependent {
 
     private static final boolean CAN_ENABLE_TCP_NODELAY_BY_DEFAULT = !isAndroid();
 
+    // 不可用原因 ..
     private static final Throwable UNSAFE_UNAVAILABILITY_CAUSE = unsafeUnavailabilityCause0();
     private static final boolean DIRECT_BUFFER_PREFERRED;
     private static final long MAX_DIRECT_MEMORY = estimateMaxDirectMemory();
@@ -456,6 +461,8 @@ public final class PlatformDependent {
      * Raises an exception bypassing compiler checks for checked exceptions.
      */
     public static void throwException(Throwable t) {
+
+        // 如果有Unsafe ..
         if (hasUnsafe()) {
             PlatformDependent0.throwException(t);
         } else {
@@ -1138,12 +1145,18 @@ public final class PlatformDependent {
         return "root".equals(username) || "toor".equals(username);
     }
 
+    /**
+     * unsafe 不可用 原因 ..
+     * @return
+     */
     private static Throwable unsafeUnavailabilityCause0() {
+        // 安卓
         if (isAndroid()) {
             logger.debug("sun.misc.Unsafe: unavailable (Android)");
             return new UnsupportedOperationException("sun.misc.Unsafe: unavailable (Android)");
         }
 
+        // ikvm ? 什么平台
         if (isIkvmDotNet()) {
             logger.debug("sun.misc.Unsafe: unavailable (IKVM.NET)");
             return new UnsupportedOperationException("sun.misc.Unsafe: unavailable (IKVM.NET)");
@@ -1154,6 +1167,7 @@ public final class PlatformDependent {
             return cause;
         }
 
+        // 最终的判断 ..
         try {
             boolean hasUnsafe = PlatformDependent0.hasUnsafe();
             logger.debug("sun.misc.Unsafe: {}", hasUnsafe ? "available" : "unavailable");

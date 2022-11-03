@@ -17,10 +17,22 @@ package io.netty.util.concurrent;
 
 import java.util.Arrays;
 
+/**
+ * @author FLJ
+ * @date 2022/10/21
+ * @time 16:13
+ * @Description DefaultFuture 的监听器些
+ */
 final class DefaultFutureListeners {
 
+    // 监听器 ..
     private GenericFutureListener<? extends Future<?>>[] listeners;
+
+    // 尺寸 ...
     private int size;
+
+    // 渐进式 监听器的数量 ...
+    // progressiveSize ...
     private int progressiveSize; // the number of progressive listeners
 
     @SuppressWarnings("unchecked")

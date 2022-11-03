@@ -22,12 +22,14 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 
 /**
  * A special {@link Thread} that provides fast access to {@link FastThreadLocal} variables.
+ * 一种特定的线程 他提供了快速访问FastThreadLocal变量的能力 .....
  */
 public class FastThreadLocalThread extends Thread {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(FastThreadLocalThread.class);
 
     // This will be set to true if we have a chance to wrap the Runnable.
+    // 如果有机会包装Runnable,那么设置为 true ..
     private final boolean cleanupFastThreadLocals;
 
     private InternalThreadLocalMap threadLocalMap;

@@ -23,6 +23,11 @@ import java.util.concurrent.TimeUnit;
  * The result of an asynchronous operation.
  *
  * 异步操作的结果
+ *
+ *
+ * future / netty 本身给它定义的功能很简单,要么执行 或者取消 ...
+ *
+ * //但是它的子类实现具有更多的功能,能够尝试成功 / 失败 / 不可取消 / 取消...
  */
 @SuppressWarnings("ClassNameSameAsAncestorName")
 public interface Future<V> extends java.util.concurrent.Future<V> {
@@ -41,6 +46,8 @@ public interface Future<V> extends java.util.concurrent.Future<V> {
     /**
      * Returns the cause of the failed I/O operation if the I/O operation has
      * failed.
+     *
+     * 由于I/O 操作失败的返回导致I/O 操作失败的原因 ..
      *
      * @return the cause of the failure.
      *         {@code null} if succeeded or this future is not
@@ -96,6 +103,8 @@ public interface Future<V> extends java.util.concurrent.Future<V> {
 
     /**
      * Waits for this future to be completed.
+     *
+     * 等待 future 完成
      *
      * @throws InterruptedException
      *         if the current thread was interrupted
@@ -165,6 +174,10 @@ public interface Future<V> extends java.util.concurrent.Future<V> {
      * {@inheritDoc}
      *
      * If the cancellation was successful it will fail the future with a {@link CancellationException}.
+     *
+     *
+     * 除了之前的功能之外,还需要抛出取消异常( 底层通过volatile 指令重排序 实现更新之后能够得到正确显示的AtomicReferenceFieldUpdater 进行更新)
+     *
      */
     @Override
     boolean cancel(boolean mayInterruptIfRunning);

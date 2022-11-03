@@ -20,7 +20,8 @@ import java.util.AbstractSet;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-
+// netty 优化的一个 SelectedKeySet ..
+// 或许还有其他目的
 final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
 
     SelectionKey[] keys;
@@ -89,11 +90,13 @@ final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
     }
 
     void reset(int start) {
+        // easy gc
         Arrays.fill(keys, start, size, null);
         size = 0;
     }
 
     private void increaseCapacity() {
+        // 扩容两倍
         SelectionKey[] newKeys = new SelectionKey[keys.length << 1];
         System.arraycopy(keys, 0, newKeys, 0, size);
         keys = newKeys;

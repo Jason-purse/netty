@@ -29,6 +29,9 @@ import java.util.Set;
 /**
  * Provides {@link ChannelOption} over a given {@link java.net.SocketOption} which is then passed through the underlying
  * {@link java.nio.channels.NetworkChannel}.
+ *
+ *
+ * 属于ChannelOption, 同样可以根据java.net.SocketOption 之上进行ChannelOption 提供(它们将传递给底层的NetworkChannel) ....
  */
 @SuppressJava6Requirement(reason = "Usage explicit by the user")
 public final class NioChannelOption<T> extends ChannelOption<T> {
@@ -51,6 +54,8 @@ public final class NioChannelOption<T> extends ChannelOption<T> {
     // It's important to not use java.nio.channels.NetworkChannel as otherwise the classes that sometimes call this
     // method may not be used on Java 6, as method linking can happen eagerly even if this method was not actually
     // called at runtime.
+
+    // 也就是说java 6中,之前这些静态方法中有些方法签名中使用了java7的类型 导致失败
     //
     // See https://github.com/netty/netty/issues/8166
 
@@ -58,9 +63,12 @@ public final class NioChannelOption<T> extends ChannelOption<T> {
     @SuppressJava6Requirement(reason = "Usage guarded by java version check")
     static <T> boolean setOption(Channel jdkChannel, NioChannelOption<T> option, T value) {
         java.nio.channels.NetworkChannel channel = (java.nio.channels.NetworkChannel) jdkChannel;
+        // 不包含
         if (!channel.supportedOptions().contains(option.option)) {
             return false;
         }
+        // 如果是ServerSocketChannel 并且  option是 IP_TOS
+        // 也就是 IP_TOS 无法设置 ..
         if (channel instanceof ServerSocketChannel && option.option == java.net.StandardSocketOptions.IP_TOS) {
             // Skip IP_TOS as a workaround for a JDK bug:
             // See https://mail.openjdk.java.net/pipermail/nio-dev/2018-August/005365.html

@@ -53,6 +53,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
     private final Map<ChannelOption<?>, Object> childOptions = new LinkedHashMap<ChannelOption<?>, Object>();
     private final Map<AttributeKey<?>, Object> childAttrs = new ConcurrentHashMap<AttributeKey<?>, Object>();
     private final ServerBootstrapConfig config = new ServerBootstrapConfig(this);
+
+    // 具体工作安排 ...
     private volatile EventLoopGroup childGroup;
     private volatile ChannelHandler childHandler;
 
@@ -134,29 +136,46 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
     @Override
     void init(Channel channel) {
+
+        // 初始化管道 ...
         setChannelOptions(channel, newOptionsArray(), logger);
         setAttributes(channel, newAttributesArray());
 
+        // 初始化 ChannelHandler chain <head and tail>
         ChannelPipeline p = channel.pipeline();
 
+        // 以下4项是为了 配置ServerBootstrapAcceptor ..
+        // 当childGroup 为空时,它之前会进行验证并设置为 parent group
         final EventLoopGroup currentChildGroup = childGroup;
         final ChannelHandler currentChildHandler = childHandler;
+
         final Entry<ChannelOption<?>, Object>[] currentChildOptions = newOptionsArray(childOptions);
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs = newAttributesArray(childAttrs);
 
+        // 管道初始化器用来初始化 一个管道的Channel Handler(动态增加) ...
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) {
                 final ChannelPipeline pipeline = ch.pipeline();
+
+                //先把配置的ChannelHandler 加入,这是为了进一步配置ChanelPipeline(一般来说是
+//                ChannelInitializer) ... 它进一步配置ChannelHandler ...
+
+                // 如果没有也没有关系,反正需要在事件循环内增加一个其他的 ChannelHandler ....
                 ChannelHandler handler = config.handler();
                 if (handler != null) {
                     pipeline.addLast(handler);
                 }
 
+                // 假设这里直接加入 ServerBootstrapAcceptor 会怎样 ..
+                // 它为什么需要在事件循环中加入一个channelHandler的处理
+
+                // 本质上应该问题不是很大, 因为如果在eventLoop外增加一个处理器,
                 //这个时候,channel肯定是创建好,并且可以初始化了 ..
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
+                        // 增加一个接收器 ...
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -178,6 +197,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         return this;
     }
 
+
+    // 这个接收器主要目的就是为了接收连接的Channel ...
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
         private final EventLoopGroup childGroup;
@@ -199,6 +220,10 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             // not be able to load the class because of the file limit it already reached.
             //
             // See https://github.com/netty/netty/issues/1328
+
+            // 官方认为当连接过多之后,fd 可能为空(?? 类加载器没有足够的fd 来进行匿名类加载,它们之前的实现是匿名类 - 也是一个文件) ...
+            // 导致boos 事件循环挂掉了 ..
+            // 同样他们也认为应该限制最大接收的FD或者连接(让jvm 有足够的FDs去使用
             enableAutoReadTask = new Runnable() {
                 @Override
                 public void run() {
@@ -218,6 +243,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             setAttributes(child, childAttrs);
 
             try {
+                // 让childGroup上注册 ...
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {

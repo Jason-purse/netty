@@ -42,6 +42,8 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 /**
  * The default {@link ChannelPipeline} implementation.  It is usually created
  * by a {@link Channel} implementation when the {@link Channel} is created.
+ *
+ * 当Channel 被创建的时候,通常由一个Channel 实现创建默认的ChannelPipeline 实现 ...
  */
 public class DefaultChannelPipeline implements ChannelPipeline {
 
@@ -50,6 +52,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     private static final String HEAD_NAME = generateName0(HeadContext.class);
     private static final String TAIL_NAME = generateName0(TailContext.class);
 
+    // 使用了一个FastThreadLocal ..
     private static final FastThreadLocal<Map<Class<?>, String>> nameCaches =
             new FastThreadLocal<Map<Class<?>, String>>() {
         @Override
@@ -61,7 +64,16 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     private static final AtomicReferenceFieldUpdater<DefaultChannelPipeline, MessageSizeEstimator.Handle> ESTIMATOR =
             AtomicReferenceFieldUpdater.newUpdater(
                     DefaultChannelPipeline.class, MessageSizeEstimator.Handle.class, "estimatorHandle");
+
+
+    /**
+     * 说明 head 是 左边(inbound)
+     */
     final HeadContext head;
+
+    /**
+     * 反之 tail 是 右边(outbound)
+     */
     final TailContext tail;
 
     private final Channel channel;
@@ -74,12 +86,21 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     private boolean firstRegistration = true;
 
     /**
-     * This is the head of a linked list that is processed by {@link #callHandlerAddedForAllHandlers()} and so process
+     * This is the head of a linked list that is processed
+     * by {@link #callHandlerAddedForAllHandlers()} and so process
      * all the pending {@link #callHandlerAdded0(AbstractChannelHandlerContext)}.
+     *
+     * 通过#callHandlerAddedForAllHandlers() 处理的 linked list的头, 它将处理所有待定的 callHandlerAdded0 ...
+     * 本质上它的意思是 这是一个linked 任务列表的头(被 callHandlerAddedForAllHandlers 处理) ...
+     *
      *
      * We only keep the head because it is expected that the list is used infrequently and its size is small.
      * Thus full iterations to do insertions is assumed to be a good compromised to saving memory and tail management
      * complexity.
+     * 仅仅保留头的原因是 它期待这个列表不会被频繁的使用以及它的尺寸也是非常小的 ..
+     * 因此一个完全迭代去插入能够节约内存以及复杂的尾部管理 ...
+     *
+     *
      */
     private PendingHandlerCallback pendingHandlerCallbackHead;
 
@@ -163,6 +184,14 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     @Override
     public final ChannelPipeline addFirst(EventExecutorGroup group, String name, ChannelHandler handler) {
         final AbstractChannelHandlerContext newCtx;
+
+        // synchronized(xxx), 特殊锁,也就是客户端锁,它存在一个问题, 例如锁自己(对于多个线程并发来说,它是没有任何问题的),
+        // 但是 它假设了这个对象上的所有方法都是同步方法,导致这个对象上的方法(在没有获取锁的情况下,无法执行) ...
+        // 也就是这个临界区内的所有方法执行(必须是同步的,但是很显然一个对象不可能所有方法都是同步方法) ..
+        // 这就导致了,执行这样的一个方法 将不被锁保护,所以客户端锁非常脆弱(需要注意这一特定条件) ...
+
+
+
         synchronized (this) {
             checkMultiplicity(handler);
             name = filterName(name, handler);
@@ -203,32 +232,49 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return addLast(null, name, handler);
     }
 
+    // 增加一个ChannelHandler的逻辑 ...
     @Override
     public final ChannelPipeline addLast(EventExecutorGroup group, String name, ChannelHandler handler) {
         final AbstractChannelHandlerContext newCtx;
         // pipeline 加锁
+        // 这一整套逻辑必须原子性处理 ...
         synchronized (this) {
+
+            // 是否可以加入多次 ..
             checkMultiplicity(handler);
 
+            // 每次加入都是一个新的Context ...
             newCtx = newContext(group, filterName(name, handler), handler);
 
+            // 入Chain ..
             addLast0(newCtx);
 
+
+            // 如果状态是false, 意味着这个管道没有在事件循环上进行注册 ...
+            // 这种情况下我们将这个上下文增加到pipeline中,并增加一个任务(它将调用ChannelHandler.handlerAdded(..),一旦管道已经注册之后) ...
             // If the registered is false it means that the channel was not registered on an eventLoop yet.
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
             if (!registered) {
                 newCtx.setAddPending();
+                // 入队任务 ...
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
 
+            // 来到这里表示已经注册完成 ... 开始尝试调用ChannelHandler.handlerAdded( ...)
+            // 判断当前的事件执行器  当前执行线程是否位于事件循环之内 ...
             EventExecutor executor = newCtx.executor();
+
+            // 如果不是,直接调用 ...
             if (!executor.inEventLoop()) {
+                // 也就是往对应的事件循环内添加一个事件
                 callHandlerAddedInEventLoop(newCtx, executor);
                 return this;
             }
         }
+
+        // 表示在事件循环中 ...
         callHandlerAdded0(newCtx);
         return this;
     }
@@ -245,6 +291,8 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     public final ChannelPipeline addBefore(String baseName, String name, ChannelHandler handler) {
         return addBefore(null, baseName, name, handler);
     }
+
+
 
     @Override
     public final ChannelPipeline addBefore(
@@ -376,6 +424,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline addLast(ChannelHandler... handlers) {
+        // 如果执行动作较快,不需要指定执行器 ...
         return addLast(null, handlers);
     }
 
@@ -393,6 +442,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return this;
     }
 
+    // 为ChannelHandler 生成一个 名字 ...
     private String generateName(ChannelHandler handler) {
         Map<Class<?>, String> cache = nameCaches.get();
         Class<?> handlerType = handler.getClass();
@@ -404,10 +454,17 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         // It's not very likely for a user to put more than one handler of the same type, but make sure to avoid
         // any name conflicts.  Note that we don't cache the names generated here.
+
+        // 以下这段代码给我一点启示, 为什么用foreach 而不是 Set / Map ...
+
+        // 又是遍历Linked list 判断名称 ..
         if (context0(name) != null) {
             String baseName = name.substring(0, name.length() - 1); // Strip the trailing '0'.
             for (int i = 1;; i ++) {
                 String newName = baseName + i;
+                // 这里又来一次,难道这有什么性能提升?
+                // 我认为这里通过一个Set 可能更好(但是,看了一下set实现(底层如果用map, 还要进行hash运算,比较麻烦)) ..
+                // 当然如果数量很少的情况下,遍历linked list 一样的 (所以如果数量少的情况下,直接遍历效果最好) ...
                 if (context0(newName) == null) {
                     name = newName;
                     break;
@@ -489,6 +546,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     /**
      * Method is synchronized to make the handler removal from the double linked list atomic.
+     * 方法是同步的确保 原子性进行 处理器的移除 ..
      */
     private synchronized void atomicRemoveFromHandlerList(AbstractChannelHandlerContext ctx) {
         AbstractChannelHandlerContext prev = ctx.prev;
@@ -615,6 +673,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    /**
+     * 调用HanderAdded ...
+     * @param ctx
+     */
     private void callHandlerAdded0(final AbstractChannelHandlerContext ctx) {
         try {
             ctx.callHandlerAdded();
@@ -622,6 +684,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             boolean removed = false;
             try {
                 atomicRemoveFromHandlerList(ctx);
+
+                // 这里不需要原子性的原因是前面已经进行了原子性处理了 ..
+                // 那么这个上下文的handler 回调应该仅仅会调用一次 ...
+                // 除非你执行了 多次相同相同上下文的handler 增加,但是这应该是不可能的 ...
                 ctx.callHandlerRemoved();
                 removed = true;
             } catch (Throwable t2) {
@@ -652,12 +718,16 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    // 如果有需要,执行
     final void invokeHandlerAddedIfNeeded() {
         assert channel.eventLoop().inEventLoop();
+        // 仅仅执行一次 ...
         if (firstRegistration) {
             firstRegistration = false;
             // We are now registered to the EventLoop. It's time to call the callbacks for the ChannelHandlers,
             // that were added before the registration was done.
+
+            // 注册之后的(处理器增加 - 直接执行 或者(在位于其他事件循环中) - 为对应的事件循环中开启一个调度
             callHandlerAddedForAllHandlers();
         }
     }
@@ -823,6 +893,8 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline fireChannelRegistered() {
+        // 开始向下传递事件 ..
+        // 从开头开始
         AbstractChannelHandlerContext.invokeChannelRegistered(head);
         return this;
     }
@@ -1105,9 +1177,12 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    // 为所有的Handler 调用HandlerAdded ...
+    // 依旧是 channel 已经注册到上下文中,准备好执行任务
     private void callHandlerAddedForAllHandlers() {
         final PendingHandlerCallback pendingHandlerCallbackHead;
         synchronized (this) {
+            // 一定没有被注册 ..(一定是没有注册的状态)
             assert !registered;
 
             // This Channel itself was registered.
@@ -1121,7 +1196,14 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         // This must happen outside of the synchronized(...) block as otherwise handlerAdded(...) may be called while
         // holding the lock and so produce a deadlock if handlerAdded(...) will try to add another handler from outside
         // the EventLoop.
+
+        // 必须发生在synchronized(..) block之外, 因为 handlerAdded(..) 如果在持有这个锁的情况下调用,会导致死锁(如果handlerAdded尝试从
+        // 事件循环外增加另一个handler
+
+        // 例如一个Channel 可以在事件循环之外进行注册 ...
         PendingHandlerCallback task = pendingHandlerCallbackHead;
+
+        // 将一堆任务进行执行 ...
         while (task != null) {
             task.execute();
             task = task.next;
@@ -1131,6 +1213,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     private void callHandlerCallbackLater(AbstractChannelHandlerContext ctx, boolean added) {
         assert !registered;
 
+        // 即将要执行的处理器回调 ...
         PendingHandlerCallback task = added ? new PendingHandlerAddedTask(ctx) : new PendingHandlerRemovedTask(ctx);
         PendingHandlerCallback pending = pendingHandlerCallbackHead;
         if (pending == null) {
@@ -1390,7 +1473,9 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelRegistered(ChannelHandlerContext ctx) {
+            // 执行HandlerAdded 事件 ..
             invokeHandlerAddedIfNeeded();
+            // 并向下传递到其他ChannelHandler ..
             ctx.fireChannelRegistered();
         }
 

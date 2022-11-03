@@ -21,6 +21,10 @@ import io.netty.util.internal.TypeParameterMatcher;
 /**
  * {@link ChannelInboundHandlerAdapter} which allows to explicit only handle a specific type of messages.
  *
+ * 这是一种ChannelInboundHandlerAdapter  允许仅仅显式的处理某种类型的消息 ...
+ * 例如 以下是处理一种字符串(String) 消息的实现:
+ *
+ *
  * For example here is an implementation which only handle {@link String} messages.
  *
  * <pre>
@@ -38,6 +42,10 @@ import io.netty.util.internal.TypeParameterMatcher;
  * Be aware that depending of the constructor parameters it will release all handled messages by passing them to
  * {@link ReferenceCountUtil#release(Object)}. In this case you may need to use
  * {@link ReferenceCountUtil#retain(Object)} if you pass the object to the next handler in the {@link ChannelPipeline}.
+ *
+ *
+ * (依赖于构造器参数)这个实现将会释放所有处理的消息(通过ReferenceCountUtil#release(Object) ..) 在这种情况下你也许需要使用ReferenceCountUtil#retain(Object)
+ * 如果你需要传递对象到ChannelPipeline中的下一个处理器中 ...
  */
 public abstract class SimpleChannelInboundHandler<I> extends ChannelInboundHandlerAdapter {
 

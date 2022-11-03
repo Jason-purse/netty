@@ -230,12 +230,16 @@ public interface ChannelHandler {
 
     /**
      * Gets called after the {@link ChannelHandler} was added to the actual context and it's ready to handle events.
+     *
+     * ChannelHandler 已经增加到实际的上下文中并准备好处理事件 ...时进行调用 ...
      */
     void handlerAdded(ChannelHandlerContext ctx) throws Exception;
 
     /**
      * Gets called after the {@link ChannelHandler} was removed from the actual context and it doesn't handle events
      * anymore.
+     *
+     * 在当前ChannelHandler 从实际的上下文中进行移除并且它不可能在处理任何事件 ...
      */
     void handlerRemoved(ChannelHandlerContext ctx) throws Exception;
 

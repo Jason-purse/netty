@@ -206,6 +206,10 @@ public abstract class AbstractNioChannel extends AbstractChannel {
          */
         void read();
 
+
+        /**
+         * 强制刷新
+         */
         void forceFlush();
     }
 
@@ -377,6 +381,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         boolean selected = false;
         for (;;) {
             try {
+                // 去选择器上注册事件,并且附件是自己 ...
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {
@@ -411,6 +416,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         final int interestOps = selectionKey.interestOps();
         if ((interestOps & readInterestOp) == 0) {
+            // 设置感兴趣的操作, 或上
             selectionKey.interestOps(interestOps | readInterestOp);
         }
     }

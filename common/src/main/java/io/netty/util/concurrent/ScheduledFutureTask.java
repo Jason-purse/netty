@@ -22,13 +22,22 @@ import io.netty.util.internal.PriorityQueueNode;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Delayed;
 import java.util.concurrent.TimeUnit;
-
+/**
+ * @author FLJ
+ * @date 2022/10/21
+ * @time 17:14
+ * @Description 可调度的FutureTask ..
+ */
 @SuppressWarnings("ComparableImplementedButEqualsNotOverridden")
 final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFuture<V>, PriorityQueueNode {
     // set once when added to priority queue
     private long id;
 
+    /**
+     * 最后期限
+     */
     private long deadlineNanos;
+
     /* 0 - no repeat, >0 - repeat at fixed rate, <0 - repeat with fixed delay */
     private final long periodNanos;
 
@@ -89,10 +98,17 @@ final class ScheduledFutureTask<V> extends PromiseTask<V> implements ScheduledFu
         return deadlineNanos;
     }
 
+    // 设置已经消费完成 ....
     void setConsumed() {
+
         // Optimization to avoid checking system clock again
         // after deadline has passed and task has been dequeued
+        // (当最后期限完毕之后并且任务已经出队之后)优化去避免检查系统时钟
+
+        // 也就是 重新调用
+        // 表示不重复
         if (periodNanos == 0) {
+            // 必然 是需要大于 最后期限 ...
             assert scheduledExecutor().getCurrentTimeNanos() >= deadlineNanos;
             deadlineNanos = 0L;
         }

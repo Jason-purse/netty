@@ -28,6 +28,15 @@ import java.net.SocketAddress;
 
 
 /**
+ *
+ * 它关联一个网络socket 或者 组件(具有例如 读 / 写 / 连接/ 和 bind )操作的能力 ...
+ *
+ * 一个channel 表示一个用户:
+ * - 当前管道的状态(例如它是open 还是 connected?)
+ * - 管道的配置参数(例如,接收缓存区尺寸) ..
+ * - 管道支持的IO 操作(例如 读 / 写 / 连接  / bind)
+ * - ChannelPipeline 处理所有的IO事件 以及和这个管道所关联的请求 ... (那这里的请求到底是? http?)
+ *
  * A nexus to a network socket or a component which is capable of I/O
  * operations such as read, write, connect, and bind.
  * <p>
@@ -40,6 +49,9 @@ import java.net.SocketAddress;
  *     associated with the channel.</li>
  * </ul>
  *
+ * 所有的IO 操作都是异步的:
+ * 意味着任何I/O 调用将会立即返回不会保证在调用结束之后请求的I/O 操作已经完成 ..
+ * 相反,你会得到一个返回的ChannelFuture 实例(它会通知你何时请求的操作已经成功完成 / 失败或者取消) ..
  * <h3>All I/O operations are asynchronous.</h3>
  * <p>
  * All I/O operations in Netty are asynchronous.  It means any I/O calls will
@@ -48,6 +60,11 @@ import java.net.SocketAddress;
  * a {@link ChannelFuture} instance which will notify you when the requested I/O
  * operation has succeeded, failed, or canceled.
  *
+ * // 管道是结构化的 ..
+ * 一个Channel 能够存在一个 parent(依赖于它是如何创建的) ..
+ * 例如, 一个SocketChannel 它是通过ServerSocketChannel创建的,那么parent 就是ServerSocketChannel ...
+ * 结构化体系的语义是依赖于传输实现的(Channel 所属的), 例如你能够创建新的Channel 实现它能够创建子管道共享同一个socket 连接,
+ * 例如 beep 以及 ssh ...
  * <h3>Channels are hierarchical</h3>
  * <p>
  * A {@link Channel} can have a {@linkplain #parent() parent} depending on
@@ -61,6 +78,11 @@ import java.net.SocketAddress;
  * share one socket connection, as <a href="http://beepcore.org/">BEEP</a> and
  * <a href="https://en.wikipedia.org/wiki/Secure_Shell">SSH</a> do.
  *
+ *
+ * 向下转换访问传输特定的操作
+ * 某些传输暴露了额外的操作 - 特定于传输
+ * 向下转换Channel 到子类型去执行某些操作,例如,在某些旧的I/O 数据包传输中, 多点加入 / 离开操作 由DatagramChannel 提供 ...
+ *
  * <h3>Downcast to access transport-specific operations</h3>
  * <p>
  * Some transports exposes additional operations that is specific to the
@@ -68,6 +90,9 @@ import java.net.SocketAddress;
  * operations.  For example, with the old I/O datagram transport, multicast
  * join / leave operations are provided by {@link DatagramChannel}.
  *
+ * 释放资源
+ * 需要调用close / 或者close(ChannelPromise) 去释放Channel 所包含的资源 ...
+ * 这意味着 所有资源能够以一种适当的方式进行释放,例如文件句柄 ..
  * <h3>Release resources</h3>
  * <p>
  * It is important to call {@link #close()} or {@link #close(ChannelPromise)} to release all
@@ -108,6 +133,7 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
 
     /**
      * Returns {@code true} if the {@link Channel} is registered with an {@link EventLoop}.
+     * 如果管道已经注册到EventLoop中 ...
      */
     boolean isRegistered();
 
@@ -176,6 +202,8 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
 
     /**
      * Returns an <em>internal-use-only</em> object that provides unsafe operations.
+     *
+     * 仅内部使用的对象(用于提供不安全操作的)
      */
     Unsafe unsafe();
 
@@ -231,6 +259,9 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
         /**
          * Register the {@link Channel} of the {@link ChannelPromise} and notify
          * the {@link ChannelFuture} once the registration was complete.
+         *
+         *
+         * 将管道注册到 对应的事件循环中,并在注册完成之后, 通知这个ChannelPromise
          */
         void register(EventLoop eventLoop, ChannelPromise promise);
 

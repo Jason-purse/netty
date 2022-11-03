@@ -32,6 +32,8 @@ import static io.netty.util.internal.ObjectUtil.checkNotNull;
 
 /**
  * The {@link PlatformDependent} operations which requires access to {@code sun.misc.*}.
+ *
+ * 这是一些需要访问 sun.misc.*的PlatformDependent 操作 ...
  */
 @SuppressJava6Requirement(reason = "Unsafe access is guarded")
 final class PlatformDependent0 {

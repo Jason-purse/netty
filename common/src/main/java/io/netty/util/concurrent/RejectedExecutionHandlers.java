@@ -45,6 +45,10 @@ public final class RejectedExecutionHandlers {
      * Tries to backoff when the task can not be added due restrictions for an configured amount of time. This
      * is only done if the task was added from outside of the event loop which means
      * {@link EventExecutor#inEventLoop()} returns {@code false}.
+     *
+     *
+     * 在配置的时间内由于限制而无法添加任务时尝试回退
+     * 如果任务从事件循环之外增加,这意味着 EventExecutor#inEventLoop() 返回 false ... (这种情况下才会执行) ..
      */
     public static RejectedExecutionHandler backoff(final int retries, long backoffAmount, TimeUnit unit) {
         ObjectUtil.checkPositive(retries, "retries");
@@ -55,9 +59,15 @@ public final class RejectedExecutionHandlers {
                 if (!executor.inEventLoop()) {
                     for (int i = 0; i < retries; i++) {
                         // Try to wake up the executor so it will empty its task queue.
+                        // 唤醒执行器, 让它清空任务队列
                         executor.wakeup(false);
 
+                        // 可能队列中的东西已经满了, 等待一段时间,尝试加入 ..
+                        // 线程休眠 ..
                         LockSupport.parkNanos(backOffNanos);
+
+                        // 如果添加成功,就返回,否则就尝试 ..
+                        // 最后用了补偿也无法加入,则抛出异常 ....
                         if (executor.offerTask(task)) {
                             return;
                         }

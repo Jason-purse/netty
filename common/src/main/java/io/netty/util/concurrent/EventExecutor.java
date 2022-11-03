@@ -40,6 +40,8 @@ public interface EventExecutor extends EventExecutorGroup {
 
     /**
      * Calls {@link #inEventLoop(Thread)} with {@link Thread#currentThread()} as argument
+     *
+     * 这个线程执行在给定的事件循环中 ...
      */
     boolean inEventLoop();
 

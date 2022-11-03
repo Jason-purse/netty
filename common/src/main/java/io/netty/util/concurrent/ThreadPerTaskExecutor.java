@@ -22,6 +22,7 @@ import java.util.concurrent.ThreadFactory;
 
 // 每一个任务一个线程执行..
 public final class ThreadPerTaskExecutor implements Executor {
+
     private final ThreadFactory threadFactory;
 
     public ThreadPerTaskExecutor(ThreadFactory threadFactory) {

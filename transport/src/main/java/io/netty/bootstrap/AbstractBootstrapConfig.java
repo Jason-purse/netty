@@ -54,6 +54,8 @@ public abstract class AbstractBootstrapConfig<B extends AbstractBootstrap<B, C>,
 
     /**
      * Returns the configured {@link ChannelHandler} or {@code null} if non is configured yet.
+     *
+     * 配置的ChannelHandler ... (如果没有配置,则为null)
      */
     public final ChannelHandler handler() {
         return bootstrap.handler();
@@ -75,6 +77,8 @@ public abstract class AbstractBootstrapConfig<B extends AbstractBootstrap<B, C>,
 
     /**
      * Returns the configured {@link EventLoopGroup} or {@code null} if non is configured yet.
+     *
+     * 配置的事件循环组 或者 null(如果它没有配置) ...
      */
     @SuppressWarnings("deprecation")
     public final EventLoopGroup group() {

@@ -17,12 +17,16 @@ package io.netty.util.concurrent;
 
 /**
  * Similar to {@link java.util.concurrent.RejectedExecutionHandler} but specific to {@link SingleThreadEventExecutor}.
+ *
+ * 类似于 java的拒绝执行处理器,但是 针对于 SingleThreadEventExecutor ...
  */
 public interface RejectedExecutionHandler {
 
     /**
      * Called when someone tried to add a task to {@link SingleThreadEventExecutor} but this failed due capacity
      * restrictions.
+     *
+     * 当某个时候尝试增加一个任务到 SingleThreadEventExecutor上但是由于容量限制而失败 ...
      */
     void rejected(Runnable task, SingleThreadEventExecutor executor);
 }

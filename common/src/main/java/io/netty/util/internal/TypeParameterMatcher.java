@@ -42,6 +42,7 @@ public abstract class TypeParameterMatcher {
             if (parameterType == Object.class) {
                 matcher = NOOP;
             } else {
+                // 否则反射匹配器
                 matcher = new ReflectiveMatcher(parameterType);
             }
             getCache.put(parameterType, matcher);
@@ -50,11 +51,20 @@ public abstract class TypeParameterMatcher {
         return matcher;
     }
 
+    /**
+     *
+     * @param object 实现了参数化超类接口的对象实例
+     * @param parametrizedSuperclass 参数化超类接口
+     * @param typeParamName jls (java 语言规范的 类型名称)
+     * @return
+     */
     public static TypeParameterMatcher find(
             final Object object, final Class<?> parametrizedSuperclass, final String typeParamName) {
 
+        // 如果没有就生产一个
         final Map<Class<?>, Map<String, TypeParameterMatcher>> findCache =
                 InternalThreadLocalMap.get().typeParameterMatcherFindCache();
+
         final Class<?> thisClass = object.getClass();
 
         Map<String, TypeParameterMatcher> map = findCache.get(thisClass);
@@ -148,6 +158,7 @@ public abstract class TypeParameterMatcher {
 
     public abstract boolean match(Object msg);
 
+    // 反射匹配器 ...
     private static final class ReflectiveMatcher extends TypeParameterMatcher {
         private final Class<?> type;
 
@@ -155,6 +166,7 @@ public abstract class TypeParameterMatcher {
             this.type = type;
         }
 
+        // 判断
         @Override
         public boolean match(Object msg) {
             return type.isInstance(msg);

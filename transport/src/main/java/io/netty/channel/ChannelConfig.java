@@ -23,6 +23,10 @@ import java.nio.channels.WritableByteChannel;
 import java.util.Map;
 
 /**
+ *
+ * 一个管道的配置属性集合 ...
+ * 请向下强转到更多特定的配置类型,例如 SocketChannelConfig 或者 使用 #setOptions(Map) 去设置特定传输的属性 ...
+ *
  * A set of configuration properties of a {@link Channel}.
  * <p>
  * Please down-cast to more specific configuration type such as
@@ -33,6 +37,11 @@ import java.util.Map;
  * {@link SocketChannelConfig} cfg = <strong>({@link SocketChannelConfig}) ch.getConfig();</strong>
  * cfg.setTcpNoDelay(false);
  * </pre>
+ *
+ * 选项集
+ * 一个选项集的属性是一个动态的仅写入属性,允许配置Channel (而无需向下转换为它所关联的ChannelConfig类型),
+ * 要更新 选项集,调用setOptions(Map)进行更新 ..
+ * 所有的ChannelConfig 包含以下的选项:
  *
  * <h3>Option map</h3>
  *
@@ -58,6 +67,9 @@ import java.util.Map;
  * </tr>
  * </table>
  * <p>
+ *
+ *     大多数选项是可用的(对于ChannelConfig的子类型来说),但是你可以配置一些特定的配置选项,例如
+ *     配置特定于 TCP/IP socket的一些选项(例如在SocketChannelConfig中解释的)
  * More options are available in the sub-types of {@link ChannelConfig}.  For
  * example, you can configure the parameters which are specific to a TCP/IP
  * socket as explained in {@link SocketChannelConfig}.

@@ -34,7 +34,10 @@ import java.util.concurrent.ThreadFactory;
 
 /**
  * {@link MultithreadEventLoopGroup} implementations which is used for NIO {@link Selector} based {@link Channel}s.
- * 针对于 基于Channel 的 NIO Selector 的 MultithreadEventLoopGroup 实现 ..
+ * 针对使用基于 NIO Selector的Channel的 MultithreadEventLoopGroup 实现 ..
+ *
+ *
+ * NIO Channel 多线程的 实现,底层核心 NioEventLoop
  */
 public class NioEventLoopGroup extends MultithreadEventLoopGroup {
 
@@ -70,7 +73,9 @@ public class NioEventLoopGroup extends MultithreadEventLoopGroup {
         this(nThreads, threadFactory, SelectorProvider.provider());
     }
 
+
     public NioEventLoopGroup(int nThreads, Executor executor) {
+        // 这里它自己绑定了一个Selector ..
         this(nThreads, executor, SelectorProvider.provider());
     }
 
@@ -167,19 +172,31 @@ public class NioEventLoopGroup extends MultithreadEventLoopGroup {
 
     @Override
     protected EventLoop newChild(Executor executor, Object... args) throws Exception {
+
+        // 获取选择器提供器
         SelectorProvider selectorProvider = (SelectorProvider) args[0];
+        // 选择策略
         SelectStrategyFactory selectStrategyFactory = (SelectStrategyFactory) args[1];
+        // 拒绝策略
         RejectedExecutionHandler rejectedExecutionHandler = (RejectedExecutionHandler) args[2];
+
+
         EventLoopTaskQueueFactory taskQueueFactory = null;
         EventLoopTaskQueueFactory tailTaskQueueFactory = null;
 
+
         int argsLength = args.length;
         if (argsLength > 3) {
+            // 任务队列工厂
             taskQueueFactory = (EventLoopTaskQueueFactory) args[3];
         }
         if (argsLength > 4) {
+            // 尾任务队列工厂 ????
+            // 后续发现,暂定为  表示任务执行完毕之后的一些任务
             tailTaskQueueFactory = (EventLoopTaskQueueFactory) args[4];
         }
+
+        // 返回了一个NIO 事件循环 ...
         return new NioEventLoop(this, executor, selectorProvider,
                 selectStrategyFactory.newSelectStrategy(),
                 rejectedExecutionHandler, taskQueueFactory, tailTaskQueueFactory);

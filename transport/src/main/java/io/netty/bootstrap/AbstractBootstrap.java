@@ -82,7 +82,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     // purposes.
     // 顺序非常重要,可能需要对于验证的目的 需要依赖于其他的项 ...
     private final Map<ChannelOption<?>, Object> options = new LinkedHashMap<ChannelOption<?>, Object>();
+    // 属性
     private final Map<AttributeKey<?>, Object> attrs = new ConcurrentHashMap<AttributeKey<?>, Object>();
+
+    // 配置的 Channel Handler ..
     private volatile ChannelHandler handler;
 
     AbstractBootstrap() {
@@ -250,9 +253,13 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     /**
+     *
+     * 创建一个Channel 并绑定它 ..
      * Create a new {@link Channel} and bind it.
      */
     public ChannelFuture bind() {
+        // 验证一些选项 ...
+        // 从这里我们也可以看出,它必须要包含一个事件组 以及 ChannelFactory
         validate();
         SocketAddress localAddress = this.localAddress;
         if (localAddress == null) {
@@ -290,8 +297,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         return doBind(ObjectUtil.checkNotNull(localAddress, "localAddress"));
     }
 
+    // doBind 核心逻辑 ...
     private ChannelFuture doBind(final SocketAddress localAddress) {
         // 初始化并注册 ...
+        // 本质上是创建Channel 并初始化 然后注册到事件循环组上
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
         if (regFuture.cause() != null) {
@@ -338,6 +347,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         Channel channel = null;
         try {
             channel = channelFactory.newChannel();
+
+            // init
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -351,7 +362,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
+//        当init 完成之后 ..
+        // 在这个事件循环组上 注册管道 ....
         ChannelFuture regFuture = config().group().register(channel);
+
+        // 如果立即完成,,并且存在错误 ..
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
                 channel.close();
@@ -379,6 +394,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      */
     abstract void init(Channel channel) throws Exception;
 
+    // 这个方法执行在channelRegistered()之前, 让用户的处理器有一个机会去在它们自己的channelRegistered 实现中 配置pipeline ...
     private static void doBind0(
             final ChannelFuture regFuture, final Channel channel,
             final SocketAddress localAddress, final ChannelPromise promise) {
@@ -399,6 +415,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
     /**
      * the {@link ChannelHandler} to use for serving the requests.
+     *
+     * 用来服务请求的ChannelHandler ...
      */
     public B handler(ChannelHandler handler) {
         this.handler = ObjectUtil.checkNotNull(handler, "handler");

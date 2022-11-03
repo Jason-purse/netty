@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.List;
 
+// 异常工具类 ...
 public final class ThrowableUtil {
 
     private ThrowableUtil() { }
@@ -28,6 +29,7 @@ public final class ThrowableUtil {
      * Set the {@link StackTraceElement} for the given {@link Throwable}, using the {@link Class} and method name.
      */
     public static <T extends Throwable> T unknownStackTrace(T cause, Class<?> clazz, String method) {
+        // 根据给定的异常,设置StackTraceElement ...
         cause.setStackTrace(new StackTraceElement[] { new StackTraceElement(clazz.getName(), method, null, -1)});
         return cause;
     }

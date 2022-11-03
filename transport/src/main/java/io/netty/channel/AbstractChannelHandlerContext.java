@@ -57,7 +57,7 @@ import static io.netty.channel.ChannelHandlerMask.MASK_READ;
 import static io.netty.channel.ChannelHandlerMask.MASK_USER_EVENT_TRIGGERED;
 import static io.netty.channel.ChannelHandlerMask.MASK_WRITE;
 import static io.netty.channel.ChannelHandlerMask.mask;
-
+// 抽象管道处理器上下文 ...
 abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, ResourceLeakHint {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractChannelHandlerContext.class);
@@ -88,6 +88,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     private final DefaultChannelPipeline pipeline;
     private final String name;
     private final boolean ordered;
+    // 这个处理的执行 掩码(关注的操作)
     private final int executionMask;
 
     // Will be set to null if no child executor should be used, otherwise it will be set to the
@@ -144,10 +145,13 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     @Override
     public ChannelHandlerContext fireChannelRegistered() {
+        // 否则从 链表中查找,关注管道注册的处理器 ....
         invokeChannelRegistered(findContextInbound(MASK_CHANNEL_REGISTERED));
         return this;
     }
 
+
+    // 执行 管道注册事件
     static void invokeChannelRegistered(final AbstractChannelHandlerContext next) {
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
@@ -163,6 +167,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     private void invokeChannelRegistered() {
+        // 已经准备好执行 ..
         if (invokeHandler()) {
             try {
                 // DON'T CHANGE
@@ -170,11 +175,19 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                 // see https://bugs.openjdk.org/browse/JDK-8180450
                 final ChannelHandler handler = handler();
                 final DefaultChannelPipeline.HeadContext headContext = pipeline.head;
+
+                // 从这里可以看出来,输入事件从head 开始 ..
                 if (handler == headContext) {
+                    // 从这里调用 ...
+                    // 然后实现事件传递 ..
                     headContext.channelRegistered(this);
-                } else if (handler instanceof ChannelDuplexHandler) {
+                }
+                //Duplex ..
+                else if (handler instanceof ChannelDuplexHandler) {
                     ((ChannelDuplexHandler) handler).channelRegistered(this);
-                } else {
+                }
+                // inbound ..
+                else {
                     ((ChannelInboundHandler) handler).channelRegistered(this);
                 }
             } catch (Throwable t) {
@@ -211,6 +224,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                 // DON'T CHANGE
                 // Duplex handlers implements both out/in interfaces causing a scalability issue
                 // see https://bugs.openjdk.org/browse/JDK-8180450
+
+                // 一个字,牛皮 .. 考虑这些关系是什么意思 ..
+
                 final ChannelHandler handler = handler();
                 final DefaultChannelPipeline.HeadContext headContext = pipeline.head;
                 if (handler == headContext) {
@@ -1051,6 +1067,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return false;
     }
 
+    // 发现 inboundContext ..(通过操作码查询) ..
     private AbstractChannelHandlerContext findContextInbound(int mask) {
         AbstractChannelHandlerContext ctx = this;
         EventExecutor currentExecutor = executor();
@@ -1069,12 +1086,22 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return ctx;
     }
 
+    /**
+     * 从 onlyMask中 寻找mask 的交集 ..
+     * @param ctx 上下文对象 用来向下遍历所有上下文
+     * @param currentExecutor 当前执行器 ..
+     * @param mask 掩码
+     * @param onlyMask 超集
+     * @return
+     */
     private static boolean skipContext(
             AbstractChannelHandlerContext ctx, EventExecutor currentExecutor, int mask, int onlyMask) {
         // Ensure we correctly handle MASK_EXCEPTION_CAUGHT which is not included in the MASK_EXCEPTION_CAUGHT
+        // 正确处理MASK_EXCEPTION_CAUGHT(在没有包含 MASK_EXCEPTION_CAUGHT的情况下) ..
         return (ctx.executionMask & (onlyMask | mask)) == 0 ||
                 // We can only skip if the EventExecutor is the same as otherwise we need to ensure we offload
                 // everything to preserve ordering.
+                // 如果事件执行器是相同的(对于不支持的操作),则需要跳过,确保 卸载所有事情是一致的顺序 ..
                 //
                 // See https://github.com/netty/netty/issues/10067
                 (ctx.executor() == currentExecutor && (ctx.executionMask & mask) == 0);
@@ -1086,15 +1113,21 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     final void setRemoved() {
+        // 也就是指定这个上下文的handler的当前状态 ...
         handlerState = REMOVE_COMPLETE;
     }
 
     final boolean setAddComplete() {
+        // CAS 自旋锁
         for (;;) {
             int oldState = handlerState;
+            // 移除完成 ...(不可能进行增加) ..
             if (oldState == REMOVE_COMPLETE) {
                 return false;
             }
+
+            // 确保我们永远不会更新(当处于 移除完成的状态下)
+            // 旧状态通常是ADD_PENDING,当然也可以是REMOVE_COMPLETE(当一个没有暴露顺序保证的EventExecutor 被使用时 ..)
             // Ensure we never update when the handlerState is REMOVE_COMPLETE already.
             // oldState is usually ADD_PENDING but can also be REMOVE_COMPLETE when an EventExecutor is used that is not
             // exposing ordering guarantees.
@@ -1109,22 +1142,36 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         assert updated; // This should always be true as it MUST be called before setAddComplete() or setRemoved().
     }
 
+
+    /**
+     * 它的意思或许我不是很明白 ..
+     *
+     * 先设置为 Complete 表示后续的增加操作非常迅速 ..
+     * // 先尽可能的设置为complete,不会去丢失任何派发的事件在当前ctx.handler上的处理 ....
+     * @throws Exception
+     */
     final void callHandlerAdded() throws Exception {
         // We must call setAddComplete before calling handlerAdded. Otherwise if the handlerAdded method generates
         // any pipeline events ctx.handler() will miss them because the state will not allow it.
+        // 必须在handlerAdded 之前调用ssetAddComplete,否则如果handlerAdded方法生成了任何pipeline 事件,ctx.handler()将会丢失他们(因为
+//        这个状态将不会被允许)
         if (setAddComplete()) {
+            // 这种不是增加之后在改变标志? 这种写法更安全,先改变标志在做事情 ...
             handler().handlerAdded(this);
         }
     }
 
+    // 一个回调方法 ...
     final void callHandlerRemoved() throws Exception {
         try {
+            // 仅仅在之前调用过 handlerAdded(..) 才会调用handlerRemoved ...
             // Only call handlerRemoved(...) if we called handlerAdded(...) before.
             if (handlerState == ADD_COMPLETE) {
                 handler().handlerRemoved(this);
             }
         } finally {
             // Mark the handler as removed in any case.
+            // 让这个处理器移除
             setRemoved();
         }
     }
@@ -1136,10 +1183,19 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
      * If this method returns {@code false} we will not invoke the {@link ChannelHandler} but just forward the event.
      * This is needed as {@link DefaultChannelPipeline} may already put the {@link ChannelHandler} in the linked-list
      * but not called {@link ChannelHandler#handlerAdded(ChannelHandlerContext)}.
+     *
+     *
+     * 确保最大努力的检测 ChannelHandler#handlerAdded(ChannelHanderContext)被调用了) ..
+     * 如果如果没有调用返回false, 调用了或者没有检测返回true ..
+     *
+     * 如果这个方法返回了false,我们将不会执行 ChannelHandler(但是会继续转发事件) ..
+     * 这意味着 DefaultChannelPipeline 已经放置了ChannelHandler 到linked-list,但是还没有调用handlerAdded(...) ..
      */
     private boolean invokeHandler() {
         // Store in local variable to reduce volatile reads.
         int handlerState = this.handlerState;
+
+        // 仅仅在COMPLETE 或者 无序且等于ADD_PENDING状态才可以执行handler ...
         return handlerState == ADD_COMPLETE || (!ordered && handlerState == ADD_PENDING);
     }
 

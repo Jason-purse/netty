@@ -34,6 +34,10 @@ import java.util.concurrent.TimeUnit;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 /**
+ * 这是一个不保证有关提交的任务调度的顺序的事件执行器实现(因为也许存在多个线程执行这些任务) ..
+ * 这个实现对于大多数不需要严格顺序的协议是可用的 ..
+ * 由于它不提供顺序保证,所以使用它的时候应该小心 ...
+ *
  * {@link EventExecutor} implementation which makes no guarantees about the ordering of task execution that
  * are submitted because there may be multiple threads executing these tasks.
  * This implementation is most useful for protocols that do not need strict ordering.

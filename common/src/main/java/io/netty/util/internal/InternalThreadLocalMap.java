@@ -36,12 +36,22 @@ import java.util.concurrent.atomic.AtomicInteger;
  * The internal data structure that stores the thread-local variables for Netty and all {@link FastThreadLocal}s.
  * Note that this class is for internal use only and is subject to change at any time.  Use {@link FastThreadLocal}
  * unless you know what you are doing.
+ *
+ * 这个内部的数据解构存储了线程本地的变量(有关Netty以及所有 FastThreadLocal)
+ * 注意到这个类是仅仅内部使用的并且可能在任何时候发生改变 ...
+ *
+ * 尝试使用FastThreadLocal(除非你知道你自己在作什么) ...
  */
 public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(InternalThreadLocalMap.class);
+
+    // 非 FastThreadLocalThread 那么共同使用这一个 threadLocal ..
+    // 也能够保证线程安全
     private static final ThreadLocal<InternalThreadLocalMap> slowThreadLocalMap =
             new ThreadLocal<InternalThreadLocalMap>();
+
+    // 每一个 threadLocal上的 变量移除标记
     private static final AtomicInteger nextIndex = new AtomicInteger();
 
     private static final int DEFAULT_ARRAY_LIST_INITIAL_CAPACITY = 8;
@@ -50,20 +60,29 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
     private static final int ARRAY_LIST_CAPACITY_MAX_SIZE = Integer.MAX_VALUE - 8;
     private static final int STRING_BUILDER_INITIAL_SIZE;
     private static final int STRING_BUILDER_MAX_SIZE;
+
+    // 初始化容量 设置(为了让内存使用尽可能的低)
     private static final int HANDLER_SHARABLE_CACHE_INITIAL_CAPACITY = 4;
     private static final int INDEXED_VARIABLE_TABLE_INITIAL_SIZE = 32;
 
     public static final Object UNSET = new Object();
 
     /** Used by {@link FastThreadLocal} */
+    // 被FastThreadLocal 使用的 线程本地变量 ...
+    // 同一批线程对应的FastThreadLocal 列表
     private Object[] indexedVariables;
 
     // Core thread-locals
+    // 核心线程局部变量
     private int futureListenerStackDepth;
     private int localChannelReaderStackDepth;
+
+    // 共享 handler的缓存 ..
     private Map<Class<?>, Boolean> handlerSharableCache;
     private IntegerHolder counterHashCode;
     private ThreadLocalRandom random;
+
+    // 这个是 typeParameterMatcherFindCache中的 Map<String, TypeParameterMatcher> 快捷方式 ..
     private Map<Class<?>, TypeParameterMatcher> typeParameterMatcherGetCache;
     private Map<Class<?>, Map<String, TypeParameterMatcher>> typeParameterMatcherFindCache;
 
@@ -98,7 +117,9 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
     }
 
     public static InternalThreadLocalMap get() {
+
         Thread thread = Thread.currentThread();
+        // 如果当前线程是 FastThreadLocalThread ...
         if (thread instanceof FastThreadLocalThread) {
             return fastGet((FastThreadLocalThread) thread);
         } else {
@@ -138,6 +159,8 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
 
     public static int nextVariableIndex() {
         int index = nextIndex.getAndIncrement();
+
+        // 也就是说Integer 最大值已经够了 用不到这么大 ...
         if (index >= ARRAY_LIST_CAPACITY_MAX_SIZE || index < 0) {
             nextIndex.set(ARRAY_LIST_CAPACITY_MAX_SIZE);
             throw new IllegalStateException("too many thread-local indexed variables");
@@ -276,6 +299,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
         return cache;
     }
 
+    // 类型参数匹配器发现缓存 ...
     public Map<Class<?>, Map<String, TypeParameterMatcher>> typeParameterMatcherFindCache() {
         Map<Class<?>, Map<String, TypeParameterMatcher>> cache = typeParameterMatcherFindCache;
         if (cache == null) {
@@ -294,6 +318,7 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
         this.counterHashCode = counterHashCode;
     }
 
+    // 处理器共享(Sharable 有关这个注解注释的handler的)缓存 ...
     public Map<Class<?>, Boolean> handlerSharableCache() {
         Map<Class<?>, Boolean> cache = handlerSharableCache;
         if (cache == null) {

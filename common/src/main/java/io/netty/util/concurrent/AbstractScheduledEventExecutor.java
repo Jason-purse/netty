@@ -26,8 +26,10 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Abstract base class for {@link EventExecutor}s that want to support scheduling.
+ * 对于想要支持调度的EventExecutor的基类 ...
  */
 public abstract class AbstractScheduledEventExecutor extends AbstractEventExecutor {
+
     private static final Comparator<ScheduledFutureTask<?>> SCHEDULED_FUTURE_TASK_COMPARATOR =
             new Comparator<ScheduledFutureTask<?>>() {
                 @Override
@@ -36,13 +38,16 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
                 }
             };
 
+    // 启动时间 = System.nanoTime()
     private static final long START_TIME = System.nanoTime();
 
+    // wakeup_task
     static final Runnable WAKEUP_TASK = new Runnable() {
        @Override
        public void run() { } // Do nothing
     };
 
+    // 调度队列(优先级)
     PriorityQueue<ScheduledFutureTask<?>> scheduledTaskQueue;
 
     long nextTaskId;
@@ -63,6 +68,12 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
      *     <li>Implementations (in particular EmbeddedEventLoop) may use their own time source so they can control time
      *     for testing purposes.</li>
      * </ul>
+     * 通过执行器的 时钟进行获取当前时间(纳秒) ...
+     * 这不等价于 System#nanoTime() 有两点原因 ..
+     * - 于System#nanoTime() 有一个固定的偏距 .
+     * - 实现(尤其是EmbeddedEventLoop) 也许使用他们自己的时间来源(因此他们能够控制时间 - 表测试目的) ...
+     *
+     *
      */
     protected long getCurrentTimeNanos() {
         return defaultCurrentTimeNanos();
@@ -77,6 +88,7 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     }
 
     static long defaultCurrentTimeNanos() {
+        // 算出当前时间的Nano单位(当前时间 减去一开始的时间起点)
         return System.nanoTime() - START_TIME;
     }
 
@@ -122,6 +134,9 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
      * Cancel all scheduled tasks.
      *
      * This method MUST be called only when {@link #inEventLoop()} is {@code true}.
+     *
+     * 取消所有已经调度的任务 ...
+     * 这个方法必须在事件循环中调用 ...
      */
     protected void cancelScheduledTasks() {
         assert inEventLoop();
@@ -134,9 +149,11 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
                 scheduledTaskQueue.toArray(new ScheduledFutureTask<?>[0]);
 
         for (ScheduledFutureTask<?> task: scheduledTasks) {
+            // 取消但是不移除
             task.cancelWithoutRemove(false);
         }
 
+        // 然后 清理掉(而不需要显式的移除对他们的引用).. 然后以便垃圾回收
         scheduledTaskQueue.clearIgnoringIndexes();
     }
 
@@ -150,15 +167,22 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     /**
      * Return the {@link Runnable} which is ready to be executed with the given {@code nanoTime}.
      * You should use {@link #getCurrentTimeNanos()} to retrieve the correct {@code nanoTime}.
+     *
+     * 返回在给定nanoTime中可以准备好执行的Runnable ..
+     * 你应该使用getCurrentTimeNanos() 去抓取正确的nanoTime ...
      */
     protected final Runnable pollScheduledTask(long nanoTime) {
         assert inEventLoop();
 
+        // 查询调度的任务
         ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
         if (scheduledTask == null || scheduledTask.deadlineNanos() - nanoTime > 0) {
             return null;
         }
+
+        // 移除队列首的一个任务 ..
         scheduledTaskQueue.remove();
+
         scheduledTask.setConsumed();
         return scheduledTask;
     }

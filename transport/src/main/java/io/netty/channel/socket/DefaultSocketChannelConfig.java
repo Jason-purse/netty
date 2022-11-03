@@ -33,11 +33,16 @@ import static io.netty.channel.ChannelOption.*;
 
 /**
  * The default {@link SocketChannelConfig} implementation.
+ *
+ *
+ * 默认的Socket Channel Configuration 实现 ..
  */
 public class DefaultSocketChannelConfig extends DefaultChannelConfig
                                         implements SocketChannelConfig {
 
     protected final Socket javaSocket;
+
+    // 允许半包
     private volatile boolean allowHalfClosure;
 
     /**

@@ -33,10 +33,16 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public abstract class MultithreadEventExecutorGroup extends AbstractEventExecutorGroup {
 
+    // 标识 这个组中的执行器列表 ...
+    // 也就是这一个组中包含了多少个执行器 ..
     private final EventExecutor[] children;
+
+    // 最终指定好的 向外暴露的children
     private final Set<EventExecutor> readonlyChildren;
     private final AtomicInteger terminatedChildren = new AtomicInteger();
     private final Promise<?> terminationFuture = new DefaultPromise(GlobalEventExecutor.INSTANCE); // 中断 Promise 使用全局事件Excutor .. (不影响 LoopGroup的处理..)
+
+    // 包含一个 事件执行器选择器工厂的事件执行器选择器
     private final EventExecutorChooserFactory.EventExecutorChooser chooser;
 
     /**
@@ -74,6 +80,9 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
         checkPositive(nThreads, "nThreads");
 
         if (executor == null) {
+            // 如果执行器为空,则创建一个 每个任务一个线程的执行器 ..
+            // 每个任务一个线程 ...
+            // 也就是说执行器组包含了一个执行器(它下面的所有多个线程,都是通过执行器来提供真正的能力的) ...
             executor = new ThreadPerTaskExecutor(newDefaultThreadFactory());
         }
 
@@ -82,6 +91,7 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
         for (int i = 0; i < nThreads; i ++) {
             boolean success = false;
             try {
+                // 创建出来 ...
                 children[i] = newChild(executor, args);
                 success = true;
             } catch (Exception e) {
@@ -90,6 +100,7 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             } finally {
                 if (!success) {
                     for (int j = 0; j < i; j ++) {
+                        // 将所有已经创建好的的清理掉 ...
                         children[j].shutdownGracefully();
                     }
 
@@ -97,10 +108,15 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
                         EventExecutor e = children[j];
                         try {
                             while (!e.isTerminated()) {
+                                // 如果还没有关的掉
+                                // 强制关闭 ...
+                                // 这里有点太长了!!!
                                 e.awaitTermination(Integer.MAX_VALUE, TimeUnit.SECONDS);
                             }
                         } catch (InterruptedException interrupted) {
                             // Let the caller handle the interruption.
+
+                            // 如何处理 ??? 没有任何异常抛出啊 !!!
                             Thread.currentThread().interrupt();
                             break;
                         }
@@ -109,17 +125,27 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
             }
         }
 
+        // 根据这些children 创建一个chooser
         chooser = chooserFactory.newChooser(children);
 
+        // 所以以下这一段代码不是很优美 ...
+
+        // 终止监听器 ..
         final FutureListener<Object> terminationListener = new FutureListener<Object>() {
             @Override
             public void operationComplete(Future<Object> future) throws Exception {
+                // 由于原子性,保证数量必然是唯一不可重复的,那么可以直接判断children的长度 ..
+                // 以前对这个不是特别理解 ...
+                // 也就是最后一个进行事件回调
+
+                // 在kotlin 中,kotlin列举了这种写法的啰嗦行为 ...
                 if (terminatedChildren.incrementAndGet() == children.length) {
                     terminationFuture.setSuccess(null);
                 }
             }
         };
 
+        // 等待所有的future 完成 ...
         for (EventExecutor e: children) {
             e.terminationFuture().addListener(terminationListener);
         }
@@ -129,6 +155,7 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
         readonlyChildren = Collections.unmodifiableSet(childrenSet);
     }
 
+    // 默认的线程工厂 ...
     protected ThreadFactory newDefaultThreadFactory() {
         return new DefaultThreadFactory(getClass());
     }
@@ -152,8 +179,12 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
     }
 
     /**
-     * Create a new EventExecutor which will later then accessible via the {@link #next()}  method. This method will be
+     * Create a new EventExecutor which will later then accessible via the {@link #next()}  method.
+     * This method will be
      * called for each thread that will serve this {@link MultithreadEventExecutorGroup}.
+     *
+     * 创建一个新的EventExecutor, 能够之后通过next方法进行访问(对于每一个由 MultithreadEventExecutorGroup 提供的线程,
+     * 都会调用这个方法用于创建) ...
      *
      */
     protected abstract EventExecutor newChild(Executor executor, Object... args) throws Exception;

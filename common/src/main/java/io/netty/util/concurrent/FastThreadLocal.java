@@ -25,6 +25,8 @@ import java.util.Set;
 /**
  * A special variant of {@link ThreadLocal} that yields higher access performance when accessed from a
  * {@link FastThreadLocalThread}.
+ *
+ *   一种Thread 特定的变种(它能够产出更高的访问性能 - 当从FastThreadLocalThread进行访问时) ...
  * <p>
  * Internally, a {@link FastThreadLocal} uses a constant index in an array, instead of using hash code and hash table,
  * to look for a variable.  Although seemingly very subtle, it yields slight performance advantage over using a hash
@@ -38,29 +40,55 @@ import java.util.Set;
  * {@link ThreadLocal}.
  * </p>
  *
+ * 本质上,一个FastThreadLocal 在数组中使用常量索引, 而不是使用hash code 以及 hash table .. 去查询一个变量 ..
+ * 虽然看起来很狡猾,但是它产出了相比使用hash table 更好的性能,对于频繁访问的情况下通常是有用的 ..
+ * 为了利用这个线程本地变量的优势,你的线程必须是一个FastThreadLocalThread 或者它的子类型 ..
+ * 默认情况,所有被DefaultThreadFactory创建的线程都是 FastThreadLocalThread(由于这个原因)
+ *
+ * 注意到这个快速路径仅仅可能存在于继承于FastThreadLocalThread的线程上, 因为它们需要一个特殊的字段存储这些必要的状态, 通过其他类型的线程访问将会使用普通的
+ * ThreadLocal ...
+ *
+ *
+ *
+ * 本质上,通过每个线程上的ThreadLocalMap 绑定一个 [variablesToRemoveIndex] = 锁定所有当前线程的FastThreadLocal ...
+ *  其次当前线程的每一种 {index} 标识的的threadLocal,都绑定到对应的 ThreadLocalMap所持有的index[]数组上,进行快速look up.. ..
+ *
+ *
  * @param <V> the type of the thread-local variable
  * @see ThreadLocal
  */
 public class FastThreadLocal<V> {
 
+    /**
+     * 给定一个variables 被移除的索引标记 ...
+     *
+     * 只要存在于 map中进行处理即可 ...
+     */
     private static final int variablesToRemoveIndex = InternalThreadLocalMap.nextVariableIndex();
 
     /**
      * Removes all {@link FastThreadLocal} variables bound to the current thread.  This operation is useful when you
      * are in a container environment, and you don't want to leave the thread local variables in the threads you do not
      * manage.
+     *
+     * 移除绑定到这个线程上的所有的FastThreadLocal 变量 ..
+     * 这个操作是有用的,当你处于某个容器环境中,并且不想将线程本地变量留在你不想要管理的线程中...
      */
     public static void removeAll() {
         InternalThreadLocalMap threadLocalMap = InternalThreadLocalMap.getIfSet();
+        // 如果等于 null
         if (threadLocalMap == null) {
             return;
         }
 
         try {
             Object v = threadLocalMap.indexedVariable(variablesToRemoveIndex);
+            // 如果不为空,并且 存在的情况下 ...
             if (v != null && v != InternalThreadLocalMap.UNSET) {
                 @SuppressWarnings("unchecked")
+                // 转换为 集合 ...
                 Set<FastThreadLocal<?>> variablesToRemove = (Set<FastThreadLocal<?>>) v;
+                //
                 FastThreadLocal<?>[] variablesToRemoveArray =
                         variablesToRemove.toArray(new FastThreadLocal[0]);
                 for (FastThreadLocal<?> tlv: variablesToRemoveArray) {
@@ -99,6 +127,8 @@ public class FastThreadLocal<V> {
         Object v = threadLocalMap.indexedVariable(variablesToRemoveIndex);
         Set<FastThreadLocal<?>> variablesToRemove;
         if (v == InternalThreadLocalMap.UNSET || v == null) {
+
+            // 对于没有对应map 实现的Set(可以通过这个方法达到适配) ...
             variablesToRemove = Collections.newSetFromMap(new IdentityHashMap<FastThreadLocal<?>, Boolean>());
             threadLocalMap.setIndexedVariable(variablesToRemoveIndex, variablesToRemove);
         } else {
@@ -122,6 +152,9 @@ public class FastThreadLocal<V> {
         variablesToRemove.remove(variable);
     }
 
+    /**
+     * 自己的一个 index ...
+     */
     private final int index;
 
     public FastThreadLocal() {
@@ -160,6 +193,8 @@ public class FastThreadLocal<V> {
     /**
      * Returns the current value for the specified thread local map.
      * The specified thread local map must be for the current thread.
+     *
+     * 返回给定thread 的  thread local map 上的信息初始化
      */
     @SuppressWarnings("unchecked")
     public final V get(InternalThreadLocalMap threadLocalMap) {
@@ -180,6 +215,7 @@ public class FastThreadLocal<V> {
         }
 
         threadLocalMap.setIndexedVariable(index, v);
+        // 增加这个FastThreadLocal到 需要被删除的标记上 ...
         addToVariablesToRemove(threadLocalMap, this);
         return v;
     }
