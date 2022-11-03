@@ -406,6 +406,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         // 因为 bind / connect 将会在注册任务调度执行完毕之后执行,因为 register() / bind / connect 是完全通过相同线程处理的 ...
 
 
+
         return regFuture;
     }
 
@@ -416,17 +417,22 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      */
     abstract void init(Channel channel) throws Exception;
 
-    // 这个方法执行在channelRegistered()之前, 让用户的处理器有一个机会去在它们自己的channelRegistered 实现中 配置pipeline ...
+    //  doBind 核心方法,用来绑定 channel到目标端口上 ...
     private static void doBind0(
             final ChannelFuture regFuture, final Channel channel,
             final SocketAddress localAddress, final ChannelPromise promise) {
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
+        // 这个方法执行之前(channelRegistered)已经触发了 ...
+        // 让用户处理器有机会去在自己的channelRegistered 实现中配置 pipeline ...
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {
+                System.out.println("invoke doBind0 .................. ");
+                // 此时必须注册成功 ...
                 if (regFuture.isSuccess()) {
+                    // 如果
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 } else {
                     promise.setFailure(regFuture.cause());

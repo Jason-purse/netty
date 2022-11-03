@@ -139,6 +139,7 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
 
     /**
      * Return {@code true} if the {@link Channel} is active and so connected.
+     * channel 激活并且连接了 ...
      */
     boolean isActive();
 
@@ -270,6 +271,8 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
         /**
          * Bind the {@link SocketAddress} to the {@link Channel} of the {@link ChannelPromise} and notify
          * it once its done.
+         *
+         * 绑定 SocketAddress 到 ChannelPromise的管道上(并且在绑定完成时给予通知)
          */
         void bind(SocketAddress localAddress, ChannelPromise promise);
 
@@ -311,6 +314,11 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
         /**
          * Schedules a read operation that fills the inbound buffer of the first {@link ChannelInboundHandler} in the
          * {@link ChannelPipeline}.  If there's already a pending read operation, this method does nothing.
+         *
+         * 调度一个read 操作(去填充在pipeline中的第一个ChannelInboundHandler的 inbound buffer)
+         *
+         * 类似于 pipeline中 的图解:
+         * (I/O 线程) ->   inboundHandler0 -> ................... inboundHandler n
          */
         void beginRead();
 

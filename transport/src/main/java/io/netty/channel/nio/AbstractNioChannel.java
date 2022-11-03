@@ -52,6 +52,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
     private final SelectableChannel ch;
     protected final int readInterestOp;
+    // selectionKey ..
+    // 选择的真实的key ...
     volatile SelectionKey selectionKey;
     boolean readPending;
     private final Runnable clearReadPendingRunnable = new Runnable() {
@@ -411,17 +413,20 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
     @Override
     protected void doBeginRead() throws Exception {
+
         // Channel.read() or ChannelHandlerContext.read() was called
         final SelectionKey selectionKey = this.selectionKey;
         if (!selectionKey.isValid()) {
             return;
         }
 
+        // 读等待 ..
         readPending = true;
 
         final int interestOps = selectionKey.interestOps();
         if ((interestOps & readInterestOp) == 0) {
             // 设置感兴趣的操作, 或上
+            // 追加读操作 跟踪
             selectionKey.interestOps(interestOps | readInterestOp);
         }
     }

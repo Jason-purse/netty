@@ -201,6 +201,16 @@ public interface ChannelOutboundInvoker {
      * {@link ChannelOutboundHandler#read(ChannelHandlerContext)}
      * method called of the next {@link ChannelOutboundHandler} contained in the {@link ChannelPipeline} of the
      * {@link Channel}.
+     *
+     *
+     * 从Channel中读取数据到第一个 inbound buffer, 触发一个ChannelInboundHandler#channelRead(ChannelHandlerContext,Object) 事件(如果数据已经被读取)
+     * 并且触发一个ChannelInboundHandler#channelReadComplete(ChannelHandlerContext) 事件表示 管道读取完成(这样处理器能够决定是否继续读取) ..
+     * 如果这是一个挂起的读取操作,那么这个方法将不会做任何事情 ...
+     *
+     * 这将导致这个Channel的pipeline中的 最近的 ChannelOutboundHandler的 read 事件被调用 ....
+     *
+     * 这里想一想也很简单,读取完毕之后,自然要转换为 outbound,进行输出 ...
+     * // 所以返回一个 ChannelOutboundInvoker ...
      */
     ChannelOutboundInvoker read();
 

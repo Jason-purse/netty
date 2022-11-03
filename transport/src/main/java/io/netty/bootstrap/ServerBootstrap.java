@@ -233,6 +233,10 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @Override
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
+
+            // 在触发channel Active的时候,它将会被处理 ...
+            // 会将这个channel 注册到 真正处理事件的循环组中 ....
+            System.out.println("ServerBootstrap channel Read invoked .........");
             final Channel child = (Channel) msg;
 
             child.pipeline().addLast(childHandler);

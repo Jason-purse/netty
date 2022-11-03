@@ -67,12 +67,13 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
 
     /**
-     * 说明 head 是 左边(inbound)
+     * 反之说明 head 是 右边(outbound)
      */
     final HeadContext head;
 
     /**
-     * 反之 tail 是 右边(outbound)
+     * 从 channel.read 可以看出 ...
+     * tail 表示 inbound 一端, 使用I/O 线程进行数据的读取 ...
      */
     final TailContext tail;
 
@@ -89,14 +90,9 @@ public class DefaultChannelPipeline implements ChannelPipeline {
      * This is the head of a linked list that is processed
      * by {@link #callHandlerAddedForAllHandlers()} and so process
      * all the pending {@link #callHandlerAdded0(AbstractChannelHandlerContext)}.
-     *
      * We only keep the head because it is expected that the list is used infrequently and its size is small.
      * Thus full iterations to do insertions is assumed to be a good compromised to saving memory and tail management
      * complexity.
-     *
-     * 表示 需要callHandlerAddedForAllHandlers 方法处理的链式列表的头 ..
-     * // 此方法 ..它将会处理所有等待的 callHandlerAdded0(AbstractChannelHandlerContext) 方法 ...
-     *
      * 这种方式(折中,1.能够快速便利,且使用频繁，尺寸较小)...
      * 2. 时 节约内存 并且更好的进行尾部复杂性管理 ..
      *
@@ -991,6 +987,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline fireChannelActive() {
+        System.out.println("pipeline 事件触发");
         AbstractChannelHandlerContext.invokeChannelActive(head);
         return this;
     }
@@ -1070,6 +1067,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelFuture bind(SocketAddress localAddress, ChannelPromise promise) {
+        // 从尾部进行处理 ...
         return tail.bind(localAddress, promise);
     }
 
@@ -1101,6 +1099,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline read() {
+        // 从尾部开始
         tail.read();
         return this;
     }
@@ -1365,13 +1364,16 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
 
         @Override
-        public void channelRegistered(ChannelHandlerContext ctx) { }
+        public void channelRegistered(ChannelHandlerContext ctx) {
+            System.out.println("channelRegistered .....");
+        }
 
         @Override
         public void channelUnregistered(ChannelHandlerContext ctx) { }
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) {
+            System.out.println("管道激活 ....");
             onUnhandledInboundChannelActive();
         }
 
@@ -1412,6 +1414,9 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    // 它主要用于切换 inbound / outbound ...
+    // 以及一些重要的有关Socket的重要操作
+    // 例如 bind / connect / accept ...
     final class HeadContext extends AbstractChannelHandlerContext
             implements ChannelOutboundHandler, ChannelInboundHandler {
 
@@ -1441,6 +1446,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         @Override
         public void bind(
                 ChannelHandlerContext ctx, SocketAddress localAddress, ChannelPromise promise) {
+            logger.info("choose handlerContext {} invoke bind action !!", this);
             unsafe.bind(localAddress, promise);
         }
 
@@ -1469,6 +1475,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void read(ChannelHandlerContext ctx) {
+            // 其他的方法根本不需要看read ...
             unsafe.beginRead();
         }
 
@@ -1491,8 +1498,13 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         public void channelRegistered(ChannelHandlerContext ctx) {
 
             // 从这里也明白了,仅仅在注册完成之后,才会调用那些 积累的任务
+
+            // 从这里可以看到,HandlerAdded 事件发生在  ChannelRegistered之前 ...
+
+            // 执行HandlerAdded 事件 ..
             invokeHandlerAddedIfNeeded();
-            // 并向下传递事件到ChannelHandler ..
+
+            // 并向下传递到其他ChannelHandler ..
             ctx.fireChannelRegistered();
         }
 
@@ -1508,8 +1520,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) {
+            // 继续传递 ...
             ctx.fireChannelActive();
 
+            // 如果管道配置为自动读,那么就开启read ..
             readIfIsAutoRead();
         }
 

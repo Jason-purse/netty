@@ -97,11 +97,13 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
     @Override
     @SuppressWarnings("unchecked")
     public final void channelRegistered(ChannelHandlerContext ctx) throws Exception {
+        System.out.println("channelRegistered ......................");
         // Normally this method will never be called as handlerAdded(...) should call initChannel(...) and remove
         // the handler.
 
         // 也就是说,通常这个方法不会被调用,因为handlerAdded(..)应该调用initChannel(..) 并移除处理器 ...
-
+        // 确实,由于执行顺序(默认DefaultChannelPipeline的设计理念)
+        // 尝试调用它
         if (initChannel(ctx)) {
             // 如果被调用了 ,那么由于增加了新的ChannelHandler ,则现在立即调用 管道的fireChannelRegistered()方法 确保不会丢失
             // 事件
@@ -145,6 +147,8 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
      */
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+
+        // 这个情况下,channel 一般来说,必然是注册了的 ...
         // 管道在注册的情况下
         if (ctx.channel().isRegistered()) {
             // This should always be true with our current DefaultChannelPipeline implementation.
@@ -154,6 +158,9 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
             // 这个方法应该总是被执行(handlerAdded), 根据默认的DefaultChannelPipeline 实现 ...来说 ..
 //            在handlerAdded中调用initChannel(...)的好处是 (没有无序的差异), 如果一个ChannelInitializer 增加到另一个ChannelInitializer 中 ..
             // 总是能够按照期待的顺序增加所有的处理器 ...
+
+            // 有序性是因为,不管你是否在ChannelInitializer 中增加另一个 ChannelInitializer ..
+            // 都在initChannel回调中有序处理了 ...
             if (initChannel(ctx)) {
 
                 // 调用完成,移除初始化器 ...
@@ -180,12 +187,15 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
             try {
                 initChannel((C) ctx.channel());
             } catch (Throwable cause) {
+                // 一旦发生初始化错误,我们直接结束它,防止 initChannel的多次调用 ...
+                // 下面的解释感觉让人费解 ...
                 // Explicitly call exceptionCaught(...) as we removed the handler before calling initChannel(...).
                 // We do so to prevent multiple calls to initChannel(...).
                 exceptionCaught(ctx, cause);
             } finally {
                 // 如果上下文没有被移除 ... 则移除当前处理器 ...
                 if (!ctx.isRemoved()) {
+                    // 这里也会移除并设置处理器上下文的handlerState
                     ctx.pipeline().remove(this);
                 }
             }

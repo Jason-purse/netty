@@ -94,6 +94,8 @@ public class ChannelInboundHandlerAdapter extends ChannelHandlerAdapter implemen
      * to the next {@link ChannelInboundHandler} in the {@link ChannelPipeline}.
      *
      * Sub-classes may override this method to change behavior.
+     *
+     * 调用ctx的fireChannelRead 向后转发到下一个inboundHandler 处理器 中处理 ...
      */
     @Skip
     @Override

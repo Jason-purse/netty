@@ -91,9 +91,12 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
 
     /**
      * Create a new instance using the given {@link ServerSocketChannel}.
+     *
+     * 可以知道的是,对于 ServerSocketChannel ,读操作就是 OP_ACCEPT ..
      */
     public NioServerSocketChannel(ServerSocketChannel channel) {
         super(null, channel, SelectionKey.OP_ACCEPT);
+        logger.info("register channel interestOp is OP_ACCEPT !!!");
         config = new NioServerSocketChannelConfig(this, javaChannel().socket());
     }
 
@@ -137,6 +140,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     @SuppressJava6Requirement(reason = "Usage guarded by java version check")
     @Override
     protected void doBind(SocketAddress localAddress) throws Exception {
+        // 大于7 直接绑定
         if (PlatformDependent.javaVersion() >= 7) {
             javaChannel().bind(localAddress, config.getBacklog());
         } else {

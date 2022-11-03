@@ -22,6 +22,7 @@ import io.netty.util.ReferenceCountUtil;
 import io.netty.util.ResourceLeakHint;
 import io.netty.util.concurrent.AbstractEventExecutor;
 import io.netty.util.concurrent.EventExecutor;
+import io.netty.util.concurrent.GlobalEventExecutor;
 import io.netty.util.concurrent.OrderedEventExecutor;
 import io.netty.util.internal.ObjectPool;
 import io.netty.util.internal.ObjectPool.Handle;
@@ -101,6 +102,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     // Lazily instantiated tasks used to trigger events to a handler with different executor.
     // There is no need to make this volatile as at worse it will just create a few more instances then needed.
+    // 懒实例化的任务被用来触发事件到使用不同执行器的handler上 ...
+    // 这不需要使用volatile,因为在更糟糕的情况下, 可能创建更多实例 ..
+    // 对于不可见性,这里无所谓 ...
     private Tasks invokeTasks;
 
     /**
@@ -139,7 +143,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     @Override
     public EventExecutor executor() {
+        // 一般来说是,首尾都没有自己的事件执行器 .... 所以拿取管道的事件执行器
         if (executor == null) {
+            //System.out.println("获取的事件循环组是:  " + channel().eventLoop());
             return channel().eventLoop();
         } else {
             return executor;
@@ -254,6 +260,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     @Override
     public ChannelHandlerContext fireChannelActive() {
+        // 触发管道激活 ...
         invokeChannelActive(findContextInbound(MASK_CHANNEL_ACTIVE));
         return this;
     }
@@ -281,6 +288,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                 final ChannelHandler handler = handler();
                 final DefaultChannelPipeline.HeadContext headContext = pipeline.head;
                 if (handler == headContext) {
+                    // 从 headContext开始 ...
                     headContext.channelActive(this);
                 } else if (handler instanceof ChannelDuplexHandler) {
                     ((ChannelDuplexHandler) handler).channelActive(this);
@@ -608,11 +616,13 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         final AbstractChannelHandlerContext next = findContextOutbound(MASK_BIND);
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
+            logger.info("处于相同事件循环组,执行绑定动作 choose ..., handlerContext is {}",next);
             next.invokeBind(localAddress, promise);
         } else {
             safeExecute(executor, new Runnable() {
                 @Override
                 public void run() {
+                    System.out.println("处于不同事件循环组,提交一个任务,稍后执行绑定动作");
                     next.invokeBind(localAddress, promise);
                 }
             }, promise, null, false);
@@ -621,6 +631,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     private void invokeBind(SocketAddress localAddress, ChannelPromise promise) {
+        logger.info("binding action choose ...");
+        // 因为在注册的过程中,用户可能已经通过channel 进行bind方法调用 ..(导致在其他线程中执行)
+        // 但是这个时候可能channelHandler 还无法处理 ...
         if (invokeHandler()) {
             try {
                 // DON'T CHANGE
@@ -846,9 +859,15 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             next.invokeRead();
         } else {
             Tasks tasks = next.invokeTasks;
+            // 为空的时候,则new Tasks ...
+            // 只要存在任务即可 ...
             if (tasks == null) {
                 next.invokeTasks = tasks = new Tasks(next);
             }
+
+            // 会再下一次进行pipeline 串行调度
+            // 此时pipeline 其实已经走完了 ..
+            // 但是不能引起相同handler的不同方法overlay ???(这是netty 在 invokeLater中给出的概念解释,暂用,似懂非懂) ...
             executor.execute(tasks.invokeReadTask);
         }
 
@@ -1354,6 +1373,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         }
     }
 
+    /**
+     * 这些任务做一些额外的动作 ...
+     */
     private static final class Tasks {
         private final AbstractChannelHandlerContext next;
         private final Runnable invokeChannelReadCompleteTask = new Runnable() {

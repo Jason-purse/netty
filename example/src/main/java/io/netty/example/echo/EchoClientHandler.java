@@ -17,8 +17,16 @@ package io.netty.example.echo;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.CharBuffer;
+import java.util.Scanner;
 
 /**
  * Handler implementation for the echo client.  It initiates the ping-pong
@@ -29,35 +37,83 @@ public class EchoClientHandler extends ChannelInboundHandlerAdapter {
 
     private final ByteBuf firstMessage;
 
+    private Thread thread;
+
+    private ChannelHandlerContext ctx;
+
+
     /**
      * Creates a client-side handler.
      */
     public EchoClientHandler() {
         firstMessage = Unpooled.buffer(EchoClient.SIZE);
-        for (int i = 0; i < firstMessage.capacity(); i ++) {
-            firstMessage.writeByte((byte) i);
-        }
+        firstMessage.writeBytes("hello,server!!!".getBytes());
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
         ctx.writeAndFlush(firstMessage);
+        if (thread != null) {
+            thread.interrupt();
+        }
+
+        thread = new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+
+                    ScannerTests.waitInput(
+                            new InputStreamReader(System.in),
+                            CharBuffer.allocate(256),
+                            val -> {
+                                if(val.trim().equals("bye")) {
+                                    // 关闭上下文 ...
+                                    ctx.close();
+                                }
+                                else {
+                                    ctx.write(val);
+                                    System.out.println("发送数据到服务器");
+                                }
+                            }
+                    );
+            }
+        });
+
+        thread.start();
     }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        ctx.write(msg);
+        if (this.ctx == null) {
+            this.ctx = ctx;
+        }
+        //ctx.write(msg);
+
+        // 打印记录 ..
+
+        System.out.println("client receive msg is " + msg);
+
     }
+
 
     @Override
     public void channelReadComplete(ChannelHandlerContext ctx) {
-       ctx.flush();
+        ctx.flush();
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         // Close the connection when an exception is raised.
         cause.printStackTrace();
+
+        System.out.println("发生了异常 !!!!!");
         ctx.close();
+        System.out.println("设置线程打断状态 ....");
+        thread.interrupt();
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        this.ctx = null;
     }
 }

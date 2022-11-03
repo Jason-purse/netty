@@ -93,6 +93,10 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * shutdown 回调钩子
      */
     private final Set<Runnable> shutdownHooks = new LinkedHashSet<Runnable>();
+
+    // 它的意思是通过 addTask(....) 进行增加任务唤醒 ..
+    //而不是说通过这个标志控制 执行器线程的唤醒 ...
+    // false 就是无论如何(如果立即执行就直接唤醒) ..
     private final boolean addTaskWakesUp;
     private final int maxPendingTasks;
     private final RejectedExecutionHandler rejectedExecutionHandler;
@@ -165,6 +169,8 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * @param executor          the {@link Executor} which will be used for executing
      * @param addTaskWakesUp    {@code true} if and only if invocation of {@link #addTask(Runnable)} will wake up the
      *                          executor thread
+     *                            如果为true,仅仅 addTask(Runnable) 会唤醒执行器线程 ...
+     *
      * @param maxPendingTasks   the maximum number of pending tasks before new tasks will be rejected.
      * @param rejectedHandler   the {@link RejectedExecutionHandler} to use.
      */
@@ -594,7 +600,6 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             // is already something in the queue.
 
             // 使用offer，因为我们实际上只需要这个来取消阻止线程，如果offer失败，我们并不关心，因为队列中已经有一些东西。
-            // 为什么需要一个这样的wakeup_task ...
             taskQueue.offer(WAKEUP_TASK);
         }
     }
@@ -918,6 +923,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             }
         }
 
+        // 如果为false,表示会唤醒事件loop ?
         if (!addTaskWakesUp && immediate) {
             wakeup(inEventLoop);
         }
@@ -993,7 +999,10 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      *
      *
      * 可以重写以控制哪些任务需要唤醒  时间执行器线程
-     * 如果是唤醒任务(直接立即执行） 。。。
+     * 如果是唤醒任务(直接立即执行） ..
+     *
+     * 根据判断那些任务需要立即唤醒事件执行器 ..
+     * 默认是都需要 ....
      */
     protected boolean wakesUpForTask(Runnable task) {
         return true;
