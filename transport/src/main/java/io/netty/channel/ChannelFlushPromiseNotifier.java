@@ -25,6 +25,7 @@ import java.util.Queue;
 /**
  * This implementation allows to register {@link ChannelFuture} instances which will get notified once some amount of
  * data was written and so a checkpoint was reached.
+ * 这实现允许 去注册 ChannelFuture 实例(这个能够得到通知,一旦一定量的数据写入 以及 监测点达到 ...) ...
  */
 public final class ChannelFlushPromiseNotifier {
 
@@ -240,9 +241,22 @@ public final class ChannelFlushPromiseNotifier {
         }
     }
 
+    /**
+     * 刷新监测点
+     */
     interface FlushCheckpoint {
+        /**
+         * 返回当前的刷新 check point
+         */
         long flushCheckpoint();
+
+        /**
+         * 刷新指定check point ..
+         * @param checkpoint checkpoint
+         */
         void flushCheckpoint(long checkpoint);
+
+        // 转换为Promise ...
         ChannelPromise promise();
     }
 

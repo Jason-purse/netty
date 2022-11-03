@@ -142,6 +142,10 @@ public interface ChannelHandlerContext extends AttributeMap, ChannelInboundInvok
      */
     boolean isRemoved();
 
+
+
+    // ---------------------------------------------------- 触发事件传播的一些回调 ----------------------------------------
+
     @Override
     ChannelHandlerContext fireChannelRegistered();
 
@@ -168,6 +172,12 @@ public interface ChannelHandlerContext extends AttributeMap, ChannelInboundInvok
 
     @Override
     ChannelHandlerContext fireChannelWritabilityChanged();
+
+
+    // ======================================================================================= over ====================================
+
+
+
 
     @Override
     ChannelHandlerContext read();

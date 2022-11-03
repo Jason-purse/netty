@@ -499,7 +499,9 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
 
     @Override
     public Promise<V> sync() throws InterruptedException {
+        // 同步的情况,完全是可打断等待 ..
         await();
+        // 如果失败了,直接抛出异常
         rethrowIfFailed();
         return this;
     }

@@ -49,6 +49,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     private final Unsafe unsafe;
     private final DefaultChannelPipeline pipeline;
     private final VoidChannelPromise unsafeVoidPromise = new VoidChannelPromise(this, false);
+
+    // 当前管道的 close future ...
+    // 应该会有对应的收尾动作
     private final CloseFuture closeFuture = new CloseFuture(this);
 
     private volatile SocketAddress localAddress;
@@ -465,23 +468,27 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
             ObjectUtil.checkNotNull(eventLoop, "eventLoop");
-
             if (isRegistered()) {
+                // 直接设置一个失败 ...
                 promise.setFailure(new IllegalStateException("registered to an event loop already"));
                 return;
             }
-
             if (!isCompatible(eventLoop)) {
                 promise.setFailure(
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
                 return;
             }
 
+            // channel的事件循环设置 ...
             AbstractChannel.this.eventLoop = eventLoop;
 
+            // 如果说当前已经在事件循环中 ..
             if (eventLoop.inEventLoop()) {
+                // 尝试register0(真正的注册动作)
+                // 只会在真正的事件循环中处理(线程同步有了)
                 register0(promise);
             } else {
+                // 放在任务调度中
                 try {
                     eventLoop.execute(new Runnable() {
                         @Override
@@ -493,52 +500,53 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     logger.warn(
                             "Force-closing a channel whose registration task was not accepted by an event loop: {}",
                             AbstractChannel.this, t);
+                    // 强制关闭
                     closeForcibly();
+                    // 设置closed ...
+                    // 完成future
                     closeFuture.setClosed();
+
+                    // 完成外部(其他线程对这个future的等待) ...
                     safeSetFailure(promise, t);
                 }
             }
         }
 
-        // 注册的核心逻辑,决定了ChannelHandler 方法回调 ...
-
-        /**
-         * 异步回调(如果不在channel 对应的事件循环中) ...
-         * @param promise
-         */
+        // 由于在事件循环中 ...则不需要同步
+        // 猜测
         private void register0(ChannelPromise promise) {
             try {
                 // check if the channel is still open as it could be closed in the mean time when the register
                 // call was outside of the eventLoop
+                // 必须在打开的情况下,并且promise 成功设置为 Uncancellable
                 if (!promise.setUncancellable() || !ensureOpen(promise)) {
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
                 doRegister();
+                // 一旦注册, 设置为 false
                 neverRegistered = false;
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
-
-                // 在通知promise 之前执行 handlerAdded(..),这样用户派发的事件将不会被丢失 ..
+                // 在实际通知promise(后续进行事件处理之前),现在我们可以调用channel中堆积的任务了 ..
+                // 这是必须的,因为用户也许在pipeline的ChannelFutureListener中通过pipeline触发了事件 ..
+                // 如果我们不执行handlerAdded,那么 事件可能会逃狱
                 pipeline.invokeHandlerAddedIfNeeded();
 
+                // 通知promise ...
                 safeSetSuccess(promise);
-
-                // 开始触发管道注册 ...
+                // 然后触发管道注册成功回调 ...
                 pipeline.fireChannelRegistered();
 
 
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
-                // 一旦管道已经注册, 触发channelActive, 这将阻止触发多次管道激活(如果这个管道已经取消注册或者重新注册) ...
+                // 当管道取消注册 / 或者重新注册的情况下 ..
+                // 仅仅只会触发一个 channelActive(其他情况下则不再触发了) ...
                 if (isActive()) {
-
-                    // 意味着仅仅触发一次 ..
                     if (firstRegistration) {
-
-                        // 管道激活
                         pipeline.fireChannelActive();
                     }
 
@@ -549,6 +557,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         // again so that we process inbound data.
                         //
                         // See https://github.com/netty/netty/issues/4805
+                        // 重新注册的管道,能够自动处理进入数据 ...
                         beginRead();
                     }
                 }
@@ -1082,6 +1091,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     /**
      * Return {@code true} if the given {@link EventLoop} is compatible with this instance.
+     *
+     * channel 和 事件循环不兼容
      */
     protected abstract boolean isCompatible(EventLoop loop);
 
@@ -1097,6 +1108,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     /**
      * Is called after the {@link Channel} is registered with its {@link EventLoop} as part of the register process.
+     *
+     * 在注册过程中 将会在Channel 注册 它的EventLoop 之后 调用此方法 ..
      *
      * Sub-classes may override this method
      */

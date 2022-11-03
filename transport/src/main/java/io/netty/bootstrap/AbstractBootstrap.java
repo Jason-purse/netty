@@ -303,10 +303,13 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         // 本质上是创建Channel 并初始化 然后注册到事件循环组上
         final ChannelFuture regFuture = initAndRegister();
         final Channel channel = regFuture.channel();
+        // 如果有异常
+        // 直接返回,没必要继续了 ...
         if (regFuture.cause() != null) {
             return regFuture;
         }
 
+        // 已经完成,直接安全绑定 ...
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
@@ -347,30 +350,41 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         Channel channel = null;
         try {
             channel = channelFactory.newChannel();
-
-            // init
+            // 当init 完毕的时候 ..
+            // 其实这个时候channel 还没有注册 ..
+            // 此时已经积累了一定量的任务,有关channel的channelHandler 初始化的任务 ..等待执行 ..
+            // 比如说 handlerAdded ...
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
-                // 无法创建新的管道 ...
+                // 无法创建新的管道 ...(强制关掉) ..
                 // channel can be null if newChannel crashed (eg SocketException("too many open files"))
                 channel.unsafe().closeForcibly();
                 // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
                 return new DefaultChannelPromise(channel, GlobalEventExecutor.INSTANCE).setFailure(t);
             }
+
+            // 目前来说,它还没有被注册 ,还能够强制使用 GlobalEventExecutor 来处理Promise 调度 ...
             // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
-            return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
+            return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE)
+                    .setFailure(t);
         }
 
 //        当init 完成之后 ..
         // 在这个事件循环组上 注册管道 ....
+        // 这个时候尝试注册到 事件组中 ...
         ChannelFuture regFuture = config().group().register(channel);
 
         // 如果立即完成,,并且存在错误 ..
+
+        // 如果速度较快,已经完成了 ...
         if (regFuture.cause() != null) {
+            // 如果已经注册了 ..
             if (channel.isRegistered()) {
+                // 关闭
                 channel.close();
             } else {
+                // 否则强制关闭
                 channel.unsafe().closeForcibly();
             }
         }
@@ -383,6 +397,14 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         //    i.e. It's safe to attempt bind() or connect() now:
         //         because bind() or connect() will be executed *after* the scheduled registration task is executed
         //         because register(), bind(), and connect() are all bound to the same thread.
+
+        // 1. 现在promise 可用了 ..
+        // 我们可以尝试 bind() / connect()
+        // 因为channel 已经注册完毕了 ...
+        //2.  如果从其他线程尝试注册,那么这个注册请求已经增加到事件循环中(将会在之后执行) ..
+        //  可以安全的 bind / connect
+        // 因为 bind / connect 将会在注册任务调度执行完毕之后执行,因为 register() / bind / connect 是完全通过相同线程处理的 ...
+
 
         return regFuture;
     }
@@ -554,6 +576,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
                 return super.executor();
             }
             // The registration failed so we can only use the GlobalEventExecutor as last resort to notify.
+            // 作为通知的最后手段
+            // 用全局事件执行器处理 ...
             return GlobalEventExecutor.INSTANCE;
         }
     }

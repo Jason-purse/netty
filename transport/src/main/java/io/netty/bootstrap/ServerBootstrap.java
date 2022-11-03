@@ -144,24 +144,23 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         // 初始化 ChannelHandler chain <head and tail>
         ChannelPipeline p = channel.pipeline();
 
+
+        // 4个属性, 真正执行任务的一些配置信息 ...
         // 以下4项是为了 配置ServerBootstrapAcceptor ..
         // 当childGroup 为空时,它之前会进行验证并设置为 parent group
         final EventLoopGroup currentChildGroup = childGroup;
         final ChannelHandler currentChildHandler = childHandler;
-
         final Entry<ChannelOption<?>, Object>[] currentChildOptions = newOptionsArray(childOptions);
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs = newAttributesArray(childAttrs);
 
-        // 管道初始化器用来初始化 一个管道的Channel Handler(动态增加) ...
+        // 本质上它尝试增加了一个 .. Acceptor ..
+        // 用来轮询套接字,然后 交给子事件循环进行处理 ...
         p.addLast(new ChannelInitializer<Channel>() {
+
+            // 什么时候执行的 initChannel ...
             @Override
             public void initChannel(final Channel ch) {
                 final ChannelPipeline pipeline = ch.pipeline();
-
-                //先把配置的ChannelHandler 加入,这是为了进一步配置ChanelPipeline(一般来说是
-//                ChannelInitializer) ... 它进一步配置ChannelHandler ...
-
-                // 如果没有也没有关系,反正需要在事件循环内增加一个其他的 ChannelHandler ....
                 ChannelHandler handler = config.handler();
                 if (handler != null) {
                     pipeline.addLast(handler);
@@ -170,7 +169,6 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 // 假设这里直接加入 ServerBootstrapAcceptor 会怎样 ..
                 // 它为什么需要在事件循环中加入一个channelHandler的处理
 
-                // 本质上应该问题不是很大, 因为如果在eventLoop外增加一个处理器,
                 //这个时候,channel肯定是创建好,并且可以初始化了 ..
                 ch.eventLoop().execute(new Runnable() {
                     @Override

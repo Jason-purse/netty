@@ -28,11 +28,17 @@ import static io.netty.util.internal.ObjectUtil.checkNotNull;
  * a new {@link ChannelPromise} rather than calling the constructor explicitly.
  *
  *
- * 默认的ChannelPrormise 实现, 推荐使用Channel#newPromise 创建一个新的ChannelPromise 而不是显式的调用构造器 ...
+ * 默认的ChannelPromise 实现, 推荐使用Channel#newPromise 创建一个新的ChannelPromise 而不是显式的调用构造器 ...
+ *
+ *
+ * 了解了DefaultPromise之后,非常了解 DefaultChannelPromise到底是什么东西了 ... (一个线程安全的future)
  */
 public class DefaultChannelPromise extends DefaultPromise<Void> implements ChannelPromise, FlushCheckpoint {
 
     private final Channel channel;
+    /**
+     * 当前的checkpoint
+     */
     private long checkpoint;
 
     /**
@@ -59,6 +65,7 @@ public class DefaultChannelPromise extends DefaultPromise<Void> implements Chann
     @Override
     protected EventExecutor executor() {
         EventExecutor e = super.executor();
+        // 如果DefaultPromise中的 执行器 为空
         if (e == null) {
             return channel().eventLoop();
         } else {
@@ -78,6 +85,7 @@ public class DefaultChannelPromise extends DefaultPromise<Void> implements Chann
 
     @Override
     public ChannelPromise setSuccess(Void result) {
+        // 设置 Result ...
         super.setSuccess(result);
         return this;
     }
@@ -158,7 +166,9 @@ public class DefaultChannelPromise extends DefaultPromise<Void> implements Chann
 
     @Override
     protected void checkDeadLock() {
+        // 如果管道注册了  ...
         if (channel().isRegistered()) {
+            // 才尝试检测 ...
             super.checkDeadLock();
         }
     }

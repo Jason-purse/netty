@@ -21,6 +21,8 @@ import io.netty.util.concurrent.Promise;
 
 /**
  * Special {@link ChannelFuture} which is writable.
+ *
+ * 它是一种可输入的 ChannelFuture ...
  */
 public interface ChannelPromise extends ChannelFuture, Promise<Void> {
 
@@ -67,6 +69,7 @@ public interface ChannelPromise extends ChannelFuture, Promise<Void> {
 
     /**
      * Returns a new {@link ChannelPromise} if {@link #isVoid()} returns {@code true} otherwise itself.
+     * 如果 isVoid 返回为true,则返回一个新的ChannelPromise ,否则还是自身 ..
      */
     ChannelPromise unvoid();
 }

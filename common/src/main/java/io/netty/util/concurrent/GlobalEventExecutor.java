@@ -37,6 +37,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Single-thread singleton {@link EventExecutor}.  It starts the thread automatically and stops it when there is no
  * task pending in the task queue for 1 second.  Please note it is not scalable to schedule large number of tasks to
  * this executor; use a dedicated executor.
+ *
+ * 我觉得它这里的概念类似于 kotlin中的 global coroutine scope ..
+ * // 非结构化并发的处理 ..
+ * 专门处理一些收尾任务调度 ...
+ *
+ * 单线程的单例事件执行其器 ..
+ * 他将自动的启动线程并关闭它(如果这里在1秒内中没有等待的任务出现在任务队列中) ..
+ * 这个事件执行器 仅仅做一些简单的工作(不能缩放为 调度大量的任务),应该使用专用的执行器 ...
  */
 public final class GlobalEventExecutor extends AbstractScheduledEventExecutor implements OrderedEventExecutor {
 

@@ -57,7 +57,10 @@ import static io.netty.channel.ChannelHandlerMask.MASK_READ;
 import static io.netty.channel.ChannelHandlerMask.MASK_USER_EVENT_TRIGGERED;
 import static io.netty.channel.ChannelHandlerMask.MASK_WRITE;
 import static io.netty.channel.ChannelHandlerMask.mask;
-// 抽象管道处理器上下文 ...
+
+/**
+ *  持有channelHandler的一个上下文 ...
+ */
 abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, ResourceLeakHint {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractChannelHandlerContext.class);
@@ -100,6 +103,11 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     // There is no need to make this volatile as at worse it will just create a few more instances then needed.
     private Tasks invokeTasks;
 
+    /**
+     * 当前处理器的状态
+     * 仅有 为ADD_COMPLETE / 非 add_pending状态才可以处理事件
+     * // 否则它可能无法处理事件 ...
+     */
     private volatile int handlerState = INIT;
 
     AbstractChannelHandlerContext(DefaultChannelPipeline pipeline, EventExecutor executor,
@@ -359,6 +367,11 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     private void invokeExceptionCaught(final Throwable cause) {
+        // 该handler 能够处理事件
+        // 要么增加完成 或者不是add_pending ...
+
+        // 如果它可以执行,则传递到handler中, 如果handler中它需要继续传递 ...事件
+        // 将话语权交给handler 自己决定(通过ctx 进行事件触发) ...
         if (invokeHandler()) {
             try {
                 handler().exceptionCaught(this, cause);
@@ -377,6 +390,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                 }
             }
         } else {
+            // 否则继续传递,直到有一个handler 能够处理事件 ...
             fireExceptionCaught(cause);
         }
     }
@@ -1073,7 +1087,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         EventExecutor currentExecutor = executor();
         do {
             ctx = ctx.next;
-        } while (skipContext(ctx, currentExecutor, mask, MASK_ONLY_INBOUND));
+        }
+        // 根据当前执行器的 handler的execution mark 和 (mask | MASK_ONLY_INBOUND) 进行 处理 ..
+        while (skipContext(ctx, currentExecutor, mask, MASK_ONLY_INBOUND));
         return ctx;
     }
 
@@ -1086,22 +1102,15 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         return ctx;
     }
 
-    /**
-     * 从 onlyMask中 寻找mask 的交集 ..
-     * @param ctx 上下文对象 用来向下遍历所有上下文
-     * @param currentExecutor 当前执行器 ..
-     * @param mask 掩码
-     * @param onlyMask 超集
-     * @return
-     */
     private static boolean skipContext(
             AbstractChannelHandlerContext ctx, EventExecutor currentExecutor, int mask, int onlyMask) {
         // Ensure we correctly handle MASK_EXCEPTION_CAUGHT which is not included in the MASK_EXCEPTION_CAUGHT
-        // 正确处理MASK_EXCEPTION_CAUGHT(在没有包含 MASK_EXCEPTION_CAUGHT的情况下) ..
-        return (ctx.executionMask & (onlyMask | mask)) == 0 ||
+        return (
+                // 第一个条件已经表明它们之间互不相干
+                ctx.executionMask & (onlyMask | mask)) == 0
+                ||
                 // We can only skip if the EventExecutor is the same as otherwise we need to ensure we offload
                 // everything to preserve ordering.
-                // 如果事件执行器是相同的(对于不支持的操作),则需要跳过,确保 卸载所有事情是一致的顺序 ..
                 //
                 // See https://github.com/netty/netty/issues/10067
                 (ctx.executor() == currentExecutor && (ctx.executionMask & mask) == 0);
@@ -1121,57 +1130,70 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         // CAS 自旋锁
         for (;;) {
             int oldState = handlerState;
-            // 移除完成 ...(不可能进行增加) ..
+            // 假如,它已经由于某种情况,进行了删除 ...
+            // 它将无法继续工作(什么时候才会删除) ..
+            // 管道注册失败 / 或者ChannelHandler 方法回调失败 ...
             if (oldState == REMOVE_COMPLETE) {
                 return false;
             }
 
-            // 确保我们永远不会更新(当处于 移除完成的状态下)
-            // 旧状态通常是ADD_PENDING,当然也可以是REMOVE_COMPLETE(当一个没有暴露顺序保证的EventExecutor 被使用时 ..)
+            // 那么进入这里,状态只可能是 INIT / ADD_PENDING ...
             // Ensure we never update when the handlerState is REMOVE_COMPLETE already.
             // oldState is usually ADD_PENDING but can also be REMOVE_COMPLETE when an EventExecutor is used that is not
             // exposing ordering guarantees.
+
+            // 这里的意思已经说明了,如果EventExecutor (没有公开顺序保证的事件执行器使用) ...
+
+            // 那么既然如此,当前这里CAS 自旋,那么对一个Channel 增加了多个channelHandler ..
+            // 如果一个channelHandler 在对应的事件执行其器中执行抛出了异常 ...
+            // 那么它仅会影响对应channel的context ...
+            //那么除非在其他线程中执行了 当前handlerContext的 handlerRemove ...
+            // 只有这种情况 ...
+            // 但是 Pipeline 中事件是局部串行的 ..
+            // 那么这里绝不可能是 REMOVE_COMPLETE
+            // 那么no ordered executor 有可能是是在其他事件执行之前(例如连接关闭,执行了 handler的移除)
+            // 这里还有待研究 ..
+            // TODO
+
             if (HANDLER_STATE_UPDATER.compareAndSet(this, oldState, ADD_COMPLETE)) {
                 return true;
             }
         }
     }
 
+    // 它会尝试将 handlerState的状态进行更改为  ADD_PENDING ..
     final void setAddPending() {
         boolean updated = HANDLER_STATE_UPDATER.compareAndSet(this, INIT, ADD_PENDING);
+        // 这应该总是为true,防御性编程 ... (它在这个时候,也就是上下文创建完毕的情况下,必然是INIT) ...
+        // 它也说明必须在 setAddComplete() or setRemoved() 方法之前调用 ...
         assert updated; // This should always be true as it MUST be called before setAddComplete() or setRemoved().
     }
 
-
-    /**
-     * 它的意思或许我不是很明白 ..
-     *
-     * 先设置为 Complete 表示后续的增加操作非常迅速 ..
-     * // 先尽可能的设置为complete,不会去丢失任何派发的事件在当前ctx.handler上的处理 ....
-     * @throws Exception
-     */
     final void callHandlerAdded() throws Exception {
         // We must call setAddComplete before calling handlerAdded. Otherwise if the handlerAdded method generates
         // any pipeline events ctx.handler() will miss them because the state will not allow it.
-        // 必须在handlerAdded 之前调用ssetAddComplete,否则如果handlerAdded方法生成了任何pipeline 事件,ctx.handler()将会丢失他们(因为
-//        这个状态将不会被允许)
+
+        // 必须在 handlerAdded 之前进行 setAddComplete 状态修改 ...
+        // 否则 handleAdded 方法生成的任何的事件(在pipeline中进行 传播将会导致 ctx.handler 无法处理事件,
+        // 因为这个时候,handler的ctx中的handlerState并不是增加完成,也就是条件不允许(无法处理事件)
+
+        // 所以也好理解,为了需要先设定状态(只有设定了状态之后,触发事件时,条件成立才可以进行事件处理,
+        // 这个时候是可以容忍,handlerAdded 没有调用, 在状态修改完成之后立即调用 ...
+
         if (setAddComplete()) {
-            // 这种不是增加之后在改变标志? 这种写法更安全,先改变标志在做事情 ...
+            // 核心方法回调 ..
             handler().handlerAdded(this);
         }
     }
 
-    // 一个回调方法 ...
     final void callHandlerRemoved() throws Exception {
         try {
-            // 仅仅在之前调用过 handlerAdded(..) 才会调用handlerRemoved ...
             // Only call handlerRemoved(...) if we called handlerAdded(...) before.
             if (handlerState == ADD_COMPLETE) {
                 handler().handlerRemoved(this);
             }
         } finally {
             // Mark the handler as removed in any case.
-            // 让这个处理器移除
             setRemoved();
         }
     }

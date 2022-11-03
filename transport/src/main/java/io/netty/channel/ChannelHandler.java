@@ -230,8 +230,16 @@ public interface ChannelHandler {
 
     /**
      * Gets called after the {@link ChannelHandler} was added to the actual context and it's ready to handle events.
+     * 在ChannelHandler 增加到实际的上下文中时 会进行调用
+     * 一旦这个方法成功调用,那么它就具备了可以进行处理事件的能力 ...
      *
-     * ChannelHandler 已经增加到实际的上下文中并准备好处理事件 ...时进行调用 ...
+     * // 为什么说这个函数调用时就已经具备了处理事件的能力 ????
+     * // 因为这个函数调用时,(状态已经设置为ADD_COMPLETE ... or 其他状态) ..
+     *
+     * // 至于 IO 线程到底如何执行channelhandler的回调... 还有待研究 ...
+     *
+     *
+     * // 但是如果它本身触发了异常,将会从pipelieng中进行移除 ....
      */
     void handlerAdded(ChannelHandlerContext ctx) throws Exception;
 

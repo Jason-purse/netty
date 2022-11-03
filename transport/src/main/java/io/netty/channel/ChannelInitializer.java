@@ -82,12 +82,10 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
             new ConcurrentHashMap<ChannelHandlerContext, Boolean>());
 
     /**
-     * This method will be called once the {@link Channel} was registered.
-     * After the method returns this instance
+     * This method will be called once the {@link Channel} was registered. After the method returns this instance
      * will be removed from the {@link ChannelPipeline} of the {@link Channel}.
      *
-     * 当Channel 已经被注册之后,则开始调用 ..
-     * 在这个方法返回之后,这个实例将会从ChannelPipeline中进行 移除 ..
+     * 一旦Channel 被注册将会立即调用, 当此实例的方法执行完毕,将会把它从Channel的pipeline中进行移除 ...
      *
      * @param ch            the {@link Channel} which was registered.
      * @throws Exception    is thrown if an error occurs. In that case it will be handled by
@@ -170,12 +168,11 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
         initMap.remove(ctx);
     }
 
-    /**
-     * 在初始化一个管道的情况下,底层是一个ConcurrentHashMap,防止并发操作 ...
-     * @param ctx
-     * @return
-     * @throws Exception
-     */
+    // 我们发现,它的调用往往只有两个时机
+    // 1. 是管道注册的回调方法  handlerRegistered ..
+    // 2. 另一个是handlerAdded (这可能是一个兜底操作)
+    // 所以我们着重查看 handlerRegistered
+    // 那么 handlerRegistered 是什么时候调用呢 ???
     @SuppressWarnings("unchecked")
     private boolean initChannel(ChannelHandlerContext ctx) throws Exception {
         // 一旦存在一个进入此流程,则不可能重新进入 ..
@@ -183,7 +180,6 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
             try {
                 initChannel((C) ctx.channel());
             } catch (Throwable cause) {
-                // 说明有可能在初始化管道之前都已经移除了 这个handler (有可能)
                 // Explicitly call exceptionCaught(...) as we removed the handler before calling initChannel(...).
                 // We do so to prevent multiple calls to initChannel(...).
                 exceptionCaught(ctx, cause);

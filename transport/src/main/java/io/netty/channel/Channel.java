@@ -227,6 +227,9 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      * <em>Unsafe</em> operations that should <em>never</em> be called from user-code. These methods
      * are only provided to implement the actual transport, and must be invoked from an I/O thread except for the
      * following methods:
+     *
+     * Unsafe 操作应该绝不会从用户代码中进行调用,这些方法仅仅提供来实现实际的传输 ..
+     * 并且必须从I/O 线程中执行(除了以下方法) ...
      * <ul>
      *   <li>{@link #localAddress()}</li>
      *   <li>{@link #remoteAddress()}</li>
@@ -260,8 +263,7 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
          * Register the {@link Channel} of the {@link ChannelPromise} and notify
          * the {@link ChannelFuture} once the registration was complete.
          *
-         *
-         * 将管道注册到 对应的事件循环中,并在注册完成之后, 通知这个ChannelPromise
+         * 注册ChannelPromise的Channel(并在注册完成之后通知ChannelFuture) ..
          */
         void register(EventLoop eventLoop, ChannelPromise promise);
 

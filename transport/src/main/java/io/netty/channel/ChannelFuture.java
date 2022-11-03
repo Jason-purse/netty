@@ -260,6 +260,8 @@ public interface ChannelFuture extends Future<Void> {
      * </ul>
      *
      * 返回true,表示这个ChannelFuture 是一个void future,它不允许调用任何以下的方法之一 ...
+     *
+     * void的意思是,这个Promise,仅仅维持一种状态,不可改变 ...
      */
     boolean isVoid();
 }

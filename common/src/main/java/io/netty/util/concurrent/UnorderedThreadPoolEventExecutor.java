@@ -43,6 +43,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
  * This implementation is most useful for protocols that do not need strict ordering.
  *
  * <strong>Because it provides no ordering care should be taken when using it!</strong>
+ *
+ * 那么没有公开排序保证的事件执行器,也就是它 ...(我猜测) ...
  */
 public final class UnorderedThreadPoolEventExecutor extends ScheduledThreadPoolExecutor implements EventExecutor {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(
