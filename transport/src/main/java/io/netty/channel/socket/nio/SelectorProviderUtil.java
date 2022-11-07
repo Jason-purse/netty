@@ -15,7 +15,6 @@
  */
 package io.netty.channel.socket.nio;
 
-import io.netty.channel.ChannelException;
 import io.netty.channel.socket.InternetProtocolFamily;
 import io.netty.util.internal.PlatformDependent;
 import io.netty.util.internal.SuppressJava6Requirement;
@@ -26,16 +25,19 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.channels.Channel;
+import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
 
 final class SelectorProviderUtil {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(SelectorProviderUtil.class);
 
+    // 从java 15开始,可以有新的方式 ...
     @SuppressJava6Requirement(reason = "Usage guarded by java version check")
     static Method findOpenMethod(String methodName) {
         if (PlatformDependent.javaVersion() >= 15) {
             try {
+                // 大于 等于15的情况下,可以根据协议形式创建出 不同的SocketChannel ..
                 return SelectorProvider.class.getMethod(methodName, java.net.ProtocolFamily.class);
             } catch (Throwable e) {
                 logger.debug("SelectorProvider.{}(ProtocolFamily) not available, will use default", methodName, e);
@@ -52,6 +54,12 @@ final class SelectorProviderUtil {
          *  {@link SelectorProvider#provider()} which is called by each SocketChannel.open() otherwise.
          *
          *  See <a href="https://github.com/netty/netty/issues/2308">#2308</a>.
+         *
+         *  使用SelectorProvider 去打开一个SocketChannel 并且 移除了 SelectorProvider#provider()条件 .
+         *  否则每一个SocketChannel.open 都会调用一次 ..(官方解释是每秒5000个连接会损失至少百分之1的性能) ..
+         *  这就是为什么直接cache provider ... 直接调用
+         *
+         *  https://docs.oracle.com/en/java/javase/15/docs/api/java.base/java/nio/channels/spi/SelectorProvider.html#openServerSocketChannel(java.net.ProtocolFamily)
          */
         if (family != null && method != null) {
             try {

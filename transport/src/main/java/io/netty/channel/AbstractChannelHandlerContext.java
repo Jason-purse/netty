@@ -1020,11 +1020,14 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             }
         } else {
             final WriteTask task = WriteTask.newInstance(next, m, promise, flush);
+            System.out.println("发送任务 ...");
             if (!safeExecute(executor, task, promise, m, !flush)) {
                 // We failed to submit the WriteTask. We need to cancel it so we decrement the pending bytes
                 // and put it back in the Recycler for re-use later.
                 //
                 // See https://github.com/netty/netty/issues/8343.
+
+                System.out.println("不能安全执行,移除了任务 ...");
                 task.cancel();
             }
         }

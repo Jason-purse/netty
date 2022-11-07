@@ -191,6 +191,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
     /**
      * Special {@link Unsafe} sub-type which allows to access the underlying {@link SelectableChannel}
+     * 特定的Unsafe 子类型 允许访问底层的 SelectableChannel ...
      */
     public interface NioUnsafe extends Unsafe {
         /**
@@ -205,6 +206,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         /**
          * Read from underlying {@link SelectableChannel}
+         * 从管道中读取 ...
          */
         void read();
 

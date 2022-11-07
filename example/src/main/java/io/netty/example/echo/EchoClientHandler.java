@@ -16,11 +16,10 @@
 package io.netty.example.echo;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.buffer.UnpooledHeapByteBuf;
+import io.netty.channel.*;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,7 +38,7 @@ public class EchoClientHandler extends ChannelInboundHandlerAdapter {
 
     private Thread thread;
 
-    private ChannelHandlerContext ctx;
+    private Channel channel;
 
 
     /**
@@ -59,6 +58,7 @@ public class EchoClientHandler extends ChannelInboundHandlerAdapter {
 
         thread = new Thread(new Runnable() {
 
+
             @Override
             public void run() {
 
@@ -68,11 +68,20 @@ public class EchoClientHandler extends ChannelInboundHandlerAdapter {
                             val -> {
                                 if(val.trim().equals("bye")) {
                                     // 关闭上下文 ...
-                                    ctx.close();
+                                    channel.close();
                                 }
                                 else {
-                                    ctx.write(val);
-                                    System.out.println("发送数据到服务器");
+                                    // 注意到 byteBuf 最后将会被自动回收 ..
+                                    channel.writeAndFlush(Unpooled.buffer().writeBytes(val.getBytes())).addListener(new ChannelFutureListener() {
+                                        @Override
+                                        public void operationComplete(ChannelFuture future) throws Exception {
+                                            Throwable cause = future.cause();
+                                            if (cause != null) {
+                                                cause.printStackTrace();
+                                            }
+                                        }
+                                    });
+                                    System.out.printf("发送数据 %s 到服务器%n", val);
                                 }
                             }
                     );
@@ -84,15 +93,22 @@ public class EchoClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        if (this.ctx == null) {
-            this.ctx = ctx;
+        if (this.channel == null) {
+            this.channel = ctx.channel();
         }
         //ctx.write(msg);
+
 
         // 打印记录 ..
 
         System.out.println("client receive msg is " + msg);
+        ByteBuf message = (ByteBuf) msg;
+        byte[] bytes = new byte[message.readableBytes()];
+        message.readBytes(bytes);
+        System.out.println(new String(bytes));
+        ctx.fireChannelRead(msg);
 
+        //ctx.write(msg);
     }
 
 
@@ -114,6 +130,7 @@ public class EchoClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        this.ctx = null;
+        this.channel = null;
     }
+
 }

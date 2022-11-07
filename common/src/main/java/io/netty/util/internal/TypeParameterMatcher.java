@@ -23,7 +23,7 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.HashMap;
 import java.util.Map;
-
+// 类型参数匹配,用来匹配 参数类型是否匹配 ...
 public abstract class TypeParameterMatcher {
 
     private static final TypeParameterMatcher NOOP = new TypeParameterMatcher() {

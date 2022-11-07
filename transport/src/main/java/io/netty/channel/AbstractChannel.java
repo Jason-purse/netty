@@ -435,9 +435,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     /**
      * {@link Unsafe} implementation which sub-classes must extend and use.
+     * Unsafe实现必须以它作为基类进行扩展并使用 ...
      */
     protected abstract class AbstractUnsafe implements Unsafe {
-
+        // 管道输出Buffer ...
         private volatile ChannelOutboundBuffer outboundBuffer = new ChannelOutboundBuffer(AbstractChannel.this);
         private RecvByteBufAllocator.Handle recvHandle;
         private boolean inFlush0;
@@ -549,7 +550,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
                 // 通知promise ...
                 safeSetSuccess(promise);
-                // 然后触发管道注册成功回调 ...
+                // 然后触发管道注册成功回调 ...(在这个时候,会向 channel上注册 OP_ACCEPT事件)
                 pipeline.fireChannelRegistered();
 
 
@@ -893,7 +894,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             try {
                 // 开始读 ...
                 doBeginRead();
-                logger.info("channel is register read ops for now !!!");
+                logger.info("{} channel is register read ops for now !!!",this);
             } catch (final Exception e) {
                 // 发生异常,则下一次调度中处理 ...
                 invokeLater(new Runnable() {
@@ -1087,7 +1088,6 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
 
                 // 也就是需要pipeline的一次调度 执行完毕之后,在处理(而不是导致同一个handler的方法重叠)
-                // 暂时不理解 ....
 
                 eventLoop().execute(task);
             } catch (RejectedExecutionException e) {

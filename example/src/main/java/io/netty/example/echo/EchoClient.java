@@ -16,11 +16,7 @@
 package io.netty.example.echo;
 
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -59,6 +55,14 @@ public final class EchoClient {
                      }
                      //p.addLast(new LoggingHandler(LogLevel.INFO));
                      p.addLast(new EchoClientHandler());
+
+                     // 仅仅处理 String 消息,在这个模型下,无效 ...
+                     p.addLast(new SimpleChannelInboundHandler<String>() {
+                         @Override
+                         protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
+                             System.out.println("receive data" + msg);
+                         }
+                     });
                  }
              });
 

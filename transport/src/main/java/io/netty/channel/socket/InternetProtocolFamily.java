@@ -23,6 +23,8 @@ import java.net.InetAddress;
 
 /**
  * Internet Protocol (IP) families used byte the {@link DatagramChannel}
+ *  网络协议系列是DatagramChannel中的字节 ..
+ *
  */
 public enum InternetProtocolFamily {
     IPv4(Inet4Address.class, 1),

@@ -25,7 +25,6 @@ public class ScannerTests {
             try {
                 if (reader.ready()) {
                     int read = reader.read(charBuffer);
-                    System.out.println("准备好处理");
                     char[] array = charBuffer.array();
                     StringBuilder builder = new StringBuilder();
                     for (int i = 0; i < read; i++) {
@@ -40,6 +39,8 @@ public class ScannerTests {
                             builder.append(array[i]);
                         }
                     }
+
+                    charBuffer.clear();
                 }
                 else {
                     Thread.sleep(1000);

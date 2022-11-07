@@ -23,6 +23,8 @@ import java.net.StandardProtocolFamily;
 
 /**
  * Helper class which convert the {@link InternetProtocolFamily}.
+ *
+ * 用来转换 InternetProtocolFamily的帮助类...
  */
 final class ProtocolFamilyConverter {
 
