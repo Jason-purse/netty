@@ -389,21 +389,21 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         do {
             if (in.isEmpty()) {
                 // All written so clear OP_WRITE
-                clearOpWrite();
-                // Directly return here so incompleteWrite(...) is not called.
+                clearOpWrite(); // 清除 写 ops ..
+                // Directly return here so incompleteWrite(...) is not called.  // 由于写完了,所以未完成写不需要调用 ...
                 return;
             }
 
-            // Ensure the pending writes are made of ByteBufs only.
-            int maxBytesPerGatheringWrite = ((NioSocketChannelConfig) config).getMaxBytesPerGatheringWrite();
-            ByteBuffer[] nioBuffers = in.nioBuffers(1024, maxBytesPerGatheringWrite);
-            int nioBufferCnt = in.nioBufferCount();
+            // Ensure the pending writes are made of ByteBufs only. // 确保待写入都由ByteBuf组成 。。。
+            int maxBytesPerGatheringWrite = ((NioSocketChannelConfig) config).getMaxBytesPerGatheringWrite(); //  每一次收集写所计算出的一个动态最大字节 ...(能够根据传输量决定合适的 buffer尺寸) ...
+            ByteBuffer[] nioBuffers = in.nioBuffers(1024, maxBytesPerGatheringWrite); // 根据每一个byteBuf的尺寸,以及最大buf数量获取ByteBuffer ...
+            int nioBufferCnt = in.nioBufferCount(); // 计算出buffer数量 ...
 
             // Always use nioBuffers() to workaround data-corruption.
             // See https://github.com/netty/netty/issues/2761
             switch (nioBufferCnt) {
                 case 0:
-                    // We have something else beside ByteBuffers to write so fallback to normal writes.
+                    // We have something else beside ByteBuffers to write so fallback to normal writes. // 表示除了ByteBuffers需要写之外,还有其他事情,退回到正常写 ...
                     writeSpinCount -= doWrite0(in);
                     break;
                 case 1: {
@@ -412,8 +412,8 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
                     // to check if the total size of all the buffers is non-zero.
                     ByteBuffer buffer = nioBuffers[0];
                     int attemptedBytes = buffer.remaining();
-                    final int localWrittenBytes = ch.write(buffer);
-                    if (localWrittenBytes <= 0) {
+                    final int localWrittenBytes = ch.write(buffer); // 这里写出的时候,我还没有刷新,对端已经接收到了 ....
+                    if (localWrittenBytes <= 0) { // 小于等于 0 ...
                         incompleteWrite(true);
                         return;
                     }
@@ -441,7 +441,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
                 }
             }
         } while (writeSpinCount > 0);
-
+        // 如果缓冲区无法接受,表示没有写完 ...
         incompleteWrite(writeSpinCount < 0);
     }
 

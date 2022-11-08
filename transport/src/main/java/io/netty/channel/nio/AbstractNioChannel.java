@@ -52,8 +52,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
     private final SelectableChannel ch;
     protected final int readInterestOp;
-    // selectionKey ..
-    // 选择的真实的key ...
+    // 这个管道所关注的操作的代表 KEY ...
     volatile SelectionKey selectionKey;
     boolean readPending;
     private final Runnable clearReadPendingRunnable = new Runnable() {
@@ -357,7 +356,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         protected final void flush0() {
             // Flush immediately only when there's no pending flush.
             // If there's a pending flush operation, event loop will call forceFlush() later,
-            // and thus there's no need to call it now.
+            // and thus there's no need to call it now.  // 立即刷新(仅当这里没有待定的flush) ... 如果这里已经存在挂起的刷新操作,之后事件循环将调用forceFlush() ... // 那么此时这里不需要立即调用它 ...
             if (!isFlushPending()) {
                 super.flush0();
             }
@@ -371,7 +370,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         private boolean isFlushPending() {
             SelectionKey selectionKey = selectionKey();
-            return selectionKey.isValid() && (selectionKey.interestOps() & SelectionKey.OP_WRITE) != 0;
+            return selectionKey.isValid() && (selectionKey.interestOps() & SelectionKey.OP_WRITE) != 0; // 管道准备好了写
         }
     }
 
@@ -389,6 +388,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
             } catch (CancelledKeyException e) {
+
+                // 当channel 已经注册到选择器上,但是 key 可能已经取消了 ...
+                // 重新选择一次 ...
                 if (!selected) {
                     // Force the Selector to select now as the "canceled" SelectionKey may still be
                     // cached and not removed because no Select.select(..) operation was called yet.

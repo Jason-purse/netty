@@ -990,7 +990,7 @@ public final class PlatformDependent {
     }
 
     private static final class Mpsc {
-        private static final boolean USE_MPSC_CHUNKED_ARRAY_QUEUE;
+        private static final boolean USE_MPSC_CHUNKED_ARRAY_QUEUE; // 根据是否能够使用 UNSAFE 来决定的 ..
 
         private Mpsc() {
         }
@@ -1058,7 +1058,7 @@ public final class PlatformDependent {
     /**
      * Create a new {@link Queue} which is safe to use for multiple producers (different threads) and a single
      * consumer (one thread!).
-     * The queue will grow and shrink its capacity in units of the given chunk size.
+     * The queue will grow and shrink its capacity in units of the given chunk size. (chunk size 仅仅只是增量(新增容量的一个unit) ..)
      */
     public static <T> Queue<T> newMpscQueue(final int chunkSize, final int maxCapacity) {
         return Mpsc.newChunkedMpscQueue(chunkSize, maxCapacity);

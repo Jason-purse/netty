@@ -40,8 +40,8 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
     // 最终指定好的 向外暴露的children
     private final Set<EventExecutor> readonlyChildren;
     private final AtomicInteger terminatedChildren = new AtomicInteger();
-    private final Promise<?> terminationFuture = new DefaultPromise(GlobalEventExecutor.INSTANCE); // 中断 Promise 使用全局事件Excutor .. (不影响 LoopGroup的处理..)
-
+    // 中断 Promise 使用全局事件Excutor .. (不影响 LoopGroup的处理..)
+    private final Promise<?> terminationFuture = new DefaultPromise(GlobalEventExecutor.INSTANCE);
     // 包含一个 事件执行器选择器工厂的事件执行器选择器
     private final EventExecutorChooserFactory.EventExecutorChooser chooser;
 

@@ -28,17 +28,14 @@ import java.nio.ByteBuffer;
 @Sharable
 public class EchoServerHandler extends ChannelInboundHandlerAdapter {
 
-    private ByteBuffer byteBuffer = ByteBuffer.allocate(255);
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
+
         ByteBuf buf = (ByteBuf) msg;
-        int capacity = buf.readableBytes();
-        byteBuffer.limit(capacity);
-        buf.getBytes(0,byteBuffer);
-        byteBuffer.flip();
-        System.out.println("read message " + new String(byteBuffer.array(),0,byteBuffer.limit()));
-        // 清理
-        byteBuffer.clear();
+        int length = buf.readableBytes();
+        byte[] bytes = new byte[length];
+        buf.getBytes(0,bytes);
+        System.out.println("read message " + new String(bytes));
         ctx.write(msg);
     }
 
@@ -49,13 +46,10 @@ public class EchoServerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        System.out.println("服务器发生了异常 ....");
         // Close the connection when an exception is raised.
         cause.printStackTrace();
         ctx.close();
     }
-
-
 
 
 }

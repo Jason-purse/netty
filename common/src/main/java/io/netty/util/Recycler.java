@@ -33,7 +33,7 @@ import static java.lang.Math.min;
 
 /**
  * Light-weight object pool based on a thread-local stack.
- *
+ * 轻量级的对象池(基于线程本地栈) ...
  * @param <T> the type of the pooled object
  */
 public abstract class Recycler<T> {
@@ -73,7 +73,7 @@ public abstract class Recycler<T> {
         // bursts.
         RATIO = max(0, SystemPropertyUtil.getInt("io.netty.recycler.ratio", 8));
 
-        BLOCKING_POOL = SystemPropertyUtil.getBoolean("io.netty.recycler.blocking", false);
+        BLOCKING_POOL = SystemPropertyUtil.getBoolean("io.netty.recycler.blocking", false); // 是否为一个阻塞pool
 
         if (logger.isDebugEnabled()) {
             if (DEFAULT_MAX_CAPACITY_PER_THREAD == 0) {
@@ -106,7 +106,7 @@ public abstract class Recycler<T> {
             value.pooledHandles = null;
             handles.clear();
         }
-    };
+    };  // 基于threadLocal 线程本地栈获取保存的变量 ...
 
     protected Recycler() {
         this(DEFAULT_MAX_CAPACITY_PER_THREAD);
@@ -161,7 +161,7 @@ public abstract class Recycler<T> {
 
     @SuppressWarnings("unchecked")
     public final T get() {
-        if (maxCapacityPerThread == 0) {
+        if (maxCapacityPerThread == 0) { // 每个线程的最大容量是根本不可能等于0的(除非我们自己设置了) ...
             return newObject((Handle<T>) NOOP_HANDLE);
         }
         LocalPool<T> localPool = threadLocal.get();
@@ -256,7 +256,7 @@ public abstract class Recycler<T> {
 
     private static final class LocalPool<T> {
         private final int ratioInterval;
-        private volatile MessagePassingQueue<DefaultHandle<T>> pooledHandles;
+        private volatile MessagePassingQueue<DefaultHandle<T>> pooledHandles; // 本地栈中保留的所有句柄 ..
         private int ratioCounter;
 
         @SuppressWarnings("unchecked")
@@ -265,11 +265,11 @@ public abstract class Recycler<T> {
             if (BLOCKING_POOL) {
                 pooledHandles = new BlockingMessageQueue<DefaultHandle<T>>(maxCapacity);
             } else {
-                pooledHandles = (MessagePassingQueue<DefaultHandle<T>>) newMpscQueue(chunkSize, maxCapacity);
+                pooledHandles = (MessagePassingQueue<DefaultHandle<T>>) newMpscQueue(chunkSize, maxCapacity); // 多生产者 单消费者的队列 ...
             }
-            ratioCounter = ratioInterval; // Start at interval so the first one will be recycled.
+            ratioCounter = ratioInterval; // Start at interval so the first one will be recycled.(每多少个回收一个)
         }
-
+        // 声称 /断言 / 要求 / 索取
         DefaultHandle<T> claim() {
             MessagePassingQueue<DefaultHandle<T>> handles = pooledHandles;
             if (handles == null) {
@@ -277,7 +277,7 @@ public abstract class Recycler<T> {
             }
             DefaultHandle<T> handle;
             do {
-                handle = handles.relaxedPoll();
+                handle = handles.relaxedPoll(); // 获取 ..
             } while (handle != null && !handle.availableToClaim());
             return handle;
         }

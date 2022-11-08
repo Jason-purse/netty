@@ -25,6 +25,8 @@ import static io.netty.util.internal.ObjectUtil.checkNotNull;
 /**
  * Allocates a new receive buffer whose capacity is probably large enough to read all inbound data and small enough
  * not to waste its space.
+ *
+ *分配一个尽可能容量足够大去读取所有进入的数据并且足够小且不会浪费空间的接受buffer ...的分配器 ...
  */
 public interface RecvByteBufAllocator {
     /**
@@ -53,17 +55,24 @@ public interface RecvByteBufAllocator {
         /**
          * Reset any counters that have accumulated and recommend how many messages/bytes should be read for the next
          * read loop.
+         *
+         * 重置任何计数器(进行估算并且推荐究竟有多少消息 /字节 应该在下一次read loop中读取)
          * <p>
          * This may be used by {@link #continueReading()} to determine if the read operation should complete.
          * </p>
          * This is only ever a hint and may be ignored by the implementation.
-         * @param config The channel configuration which may impact this object's behavior.
+         * @param config The channel configuration which may impact this object's behavior. // 这个管道配置也许能够影响 这个对象的行为 ...
+         *
+         * 如果读取操作应该完成 ... 这可能被 continueReading方法使用决定 ..
+         *  这仅仅只是一种提示并且也许可能被实现忽略 ..
+         *
          */
         void reset(ChannelConfig config);
 
         /**
          * Increment the number of messages that have been read for the current read loop.
-         * @param numMessages The amount to increment by.
+         * 增加消息的数量(对于当前读取循环中所已经读取的) ...
+         * @param numMessages The amount to increment by. 增加的数量
          */
         void incMessagesRead(int numMessages);
 
@@ -97,6 +106,8 @@ public interface RecvByteBufAllocator {
 
         /**
          * Determine if the current read loop should continue.
+         * 决定当前读取循环是否继续 ...
+         * 如果true,表示继续,否则表示读取循环完成 ..
          * @return {@code true} if the read loop should continue reading. {@code false} if the read loop is complete.
          */
         boolean continueReading();

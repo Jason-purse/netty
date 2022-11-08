@@ -42,7 +42,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * An {@link EventLoopGroup} that creates one {@link EventLoop} per {@link Channel}.
- *
+ * 为每一个管道创建一个事件循环的事件循环组 ...
  * @deprecated this will be remove in the next-major release.
  */
 @Deprecated

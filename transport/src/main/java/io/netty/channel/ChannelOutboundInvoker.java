@@ -230,6 +230,7 @@ public interface ChannelOutboundInvoker {
 
     /**
      * Request to flush all pending messages via this ChannelOutboundInvoker.
+     * 刷新所有待定的消息(通过ChannelOutboundInvoker) ...
      */
     ChannelOutboundInvoker flush();
 

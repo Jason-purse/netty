@@ -50,7 +50,7 @@ public class ChannelInboundHandlerAdapter extends ChannelHandlerAdapter implemen
     @Skip
     @Override
     public void channelRegistered(ChannelHandlerContext ctx) throws Exception {
-        ctx.fireChannelRegistered();
+        ctx.fireChannelRegistered(); // 如果一路向下传递到 head,则又进入了 doBegin ...
     }
 
     /**

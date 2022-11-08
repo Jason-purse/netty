@@ -17,12 +17,12 @@ package io.netty.channel;
 
 /**
  * Responsible to estimate the size of a message. The size represents approximately how much memory the message will
- * reserve in memory.
+ * reserve in memory.  负责消息尺寸的评估,这个尺寸代表了应该要多少的内存是合适的(用来保存消息) ...
  */
 public interface MessageSizeEstimator {
 
     /**
-     * Creates a new handle. The handle provides the actual operations.
+     * Creates a new handle. The handle provides the actual operations. // 创建一个句柄,提供实际的操作 ...
      */
     Handle newHandle();
 

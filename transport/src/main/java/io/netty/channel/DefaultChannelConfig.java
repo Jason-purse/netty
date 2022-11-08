@@ -45,7 +45,7 @@ import static io.netty.util.internal.ObjectUtil.checkPositiveOrZero;
  * The default {@link ChannelConfig} implementation.
  */
 public class DefaultChannelConfig implements ChannelConfig {
-    private static final MessageSizeEstimator DEFAULT_MSG_SIZE_ESTIMATOR = DefaultMessageSizeEstimator.DEFAULT;
+    private static final MessageSizeEstimator DEFAULT_MSG_SIZE_ESTIMATOR = DefaultMessageSizeEstimator.DEFAULT; // 可以知道的是,默认的 MSG_消息评估器是一个单例
 
     private static final int DEFAULT_CONNECT_TIMEOUT = 30000;
 

@@ -50,7 +50,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         @Override
         public void run() {
             // Calling flush0 directly to ensure we not try to flush messages that were added via write(...) in the
-            // meantime.
+            // meantime.  直接调用flush0(避免刷新在调度期间通过write(..)加入的消息) ...
             ((AbstractNioUnsafe) unsafe()).flush0();
         }
     };
@@ -163,12 +163,12 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
                     allocHandle.incMessagesRead(1);
                     readPending = false;
-                    pipeline.fireChannelRead(byteBuf);
+                    pipeline.fireChannelRead(byteBuf); // 触发消息读 ...
                     byteBuf = null;
                 } while (allocHandle.continueReading());
 
                 allocHandle.readComplete();
-                pipeline.fireChannelReadComplete();
+                pipeline.fireChannelReadComplete(); // 这里执行读完成 ...
 
                 if (close) {
                     closeOnRead(pipeline);
@@ -190,16 +190,16 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     }
 
     /**
-     * Write objects to the OS.
+     * Write objects to the OS.  写入对象到OS ...
      * @param in the collection which contains objects to write.
      * @return The value that should be decremented from the write quantum which starts at
      * {@link ChannelConfig#getWriteSpinCount()}. The typical use cases are as follows:
      * <ul>
      *     <li>0 - if no write was attempted. This is appropriate if an empty {@link ByteBuf} (or other empty content)
-     *     is encountered</li>
-     *     <li>1 - if a single call to write data was made to the OS</li>
-     *     <li>{@link ChannelUtils#WRITE_STATUS_SNDBUF_FULL} - if an attempt to write data was made to the OS, but no
-     *     data was accepted</li>
+     *     is encountered</li>  0 (表示没有写入需要),如果是空的ByteBuf(或者其他空的内容)
+     *     <li>1 - if a single call to write data was made to the OS</li>  1,表示单词调用去写入数据到OS ...
+     *     <li>{@link ChannelUtils#WRITE_STATUS_SNDBUF_FULL} - if an attempt to write data was made to the OS, but no data was accepted</li>
+     *      写状态发送缓冲区是满的(如果尝试写入数据到OS,但是没有数据接受) ....(也就是缓冲区满了) ..
      * </ul>
      * @throws Exception if an I/O exception occurs during write.
      */
@@ -289,7 +289,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     protected final void incompleteWrite(boolean setOpWrite) {
         // Did not write completely.
         if (setOpWrite) {
-            setOpWrite();
+            setOpWrite(); // 继续保留写Ops ...
         } else {
             // It is possible that we have set the write OP, woken up by NIO because the socket is writable, and then
             // use our write quantum. In this case we no longer want to set the write OP because the socket is still
@@ -341,12 +341,12 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         // Check first if the key is still valid as it may be canceled as part of the deregistration
         // from the EventLoop
         // See https://github.com/netty/netty/issues/2104
-        if (!key.isValid()) {
+        if (!key.isValid()) { // 首先检查它是否仍然是有效的(它也许可能被取消了 从事件循环中取消注册的一部分) ...
             return;
         }
-        final int interestOps = key.interestOps();
+        final int interestOps = key.interestOps(); // 感兴趣的 Ops ..
         if ((interestOps & SelectionKey.OP_WRITE) != 0) {
-            key.interestOps(interestOps & ~SelectionKey.OP_WRITE);
+            key.interestOps(interestOps & ~SelectionKey.OP_WRITE); // 去掉 OP_WRITE OPS ...
         }
     }
 }

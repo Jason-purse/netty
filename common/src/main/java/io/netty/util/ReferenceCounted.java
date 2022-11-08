@@ -28,6 +28,17 @@ package io.netty.util;
  * {@link ReferenceCounted}, the contained objects will also be released via {@link #release()} when the container's
  * reference count becomes 0.
  * </p>
+ *
+ * 一个引用计数的对象需要显式的取消分配 ..
+ * 当一个新的ReferenceCounted 实例化, 它的引用数量为1, retain() 增加引用数量, release()减少引用数量 ..
+ * 如果引用数量减少为0, 这个对象将显式的释放, 并且访问一个释放对象将导致 访问错误 ..
+ *
+ *
+ * 如果 一个实现了Referencecounted是一个包含了其他实现了ReferenceCounted 对象的容器
+ * 这个被包含的对象将通过release()进行释放(当容器的引用次数变为0时) ...
+ *
+ *
+ *
  */
 public interface ReferenceCounted {
     /**
@@ -56,6 +67,9 @@ public interface ReferenceCounted {
      * Records the current access location of this object with an additional arbitrary information for debugging
      * purposes.  If this object is determined to be leaked, the information recorded by this operation will be
      * provided to you via {@link ResourceLeakDetector}.
+     *
+     * 记录此对象的当前访问位置以及其他额外的任何信息(为了调试目的) ..
+     * 如果这个对象检测到被泄露了,那么由此操作记录的信息将会通过ResourceLeakDetector 提供给你 ...
      */
     ReferenceCounted touch(Object hint);
 

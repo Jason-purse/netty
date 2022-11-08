@@ -63,7 +63,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     // 是否已经注册了 ...
     private volatile boolean registered;
     private boolean closeInitiated;
-    private Throwable initialCloseCause;
+    private Throwable initialCloseCause; // 最初导致关闭的异常 ..
 
     /**
      * Cache for the string representation of this channel
@@ -438,6 +438,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      * Unsafe实现必须以它作为基类进行扩展并使用 ...
      */
     protected abstract class AbstractUnsafe implements Unsafe {
+        // 向外写出的缓冲区 ...  也就是说仅当管道关闭的时候,缓冲区才会释放 ...
         // 管道输出Buffer ...
         private volatile ChannelOutboundBuffer outboundBuffer = new ChannelOutboundBuffer(AbstractChannel.this);
         private RecvByteBufAllocator.Handle recvHandle;
@@ -536,9 +537,6 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 // 一旦注册, 设置为 false
                 neverRegistered = false;
                 logger.info("current Channel register finish !!!!!");
-                // 直接让步
-                // 让 dobind 执行 ...
-                Thread.currentThread().yield();
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
@@ -561,7 +559,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 // 本来 bind 完成动作之后会触发管道激活 ... 但是此时它也会在激活的情况下(第一次注册时触发管道激活)
                 // 只有一种猜测,也就是之前尝试绑定过 ... 但是管道现在可能由于某种原因(例如由于异常取消了注册) 现在重新注册 ...
                 // 并且绑定的底层的selectableChannel 依旧可用 ...
-                if (isActive()) {
+                if (isActive()) {  // 另外,在一个SocketChannel 连接到ServerSocketChannel的时候,管道会被连接且激活 ...
                     if (firstRegistration) {
                         pipeline.fireChannelActive();
                     }
@@ -912,16 +910,16 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             assertEventLoop();
 
             ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
-            if (outboundBuffer == null) {
+            if (outboundBuffer == null) { // 如果管道为空 ..
                 try {
                     // release message now to prevent resource-leak
-                    ReferenceCountUtil.release(msg);
+                    ReferenceCountUtil.release(msg); // 释放资源
                 } finally {
                     // If the outboundBuffer is null we know the channel was closed and so
                     // need to fail the future right away. If it is not null the handling of the rest
                     // will be done in flush0()
                     // See https://github.com/netty/netty/issues/2362
-                    safeSetFailure(promise,
+                    safeSetFailure(promise, // 仅仅处理一下promise ...
                             newClosedChannelException(initialCloseCause, "write(Object, ChannelPromise)"));
                 }
                 return;
@@ -930,7 +928,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             int size;
             try {
                 msg = filterOutboundMessage(msg);
-                size = pipeline.estimatorHandle().size(msg);
+                size = pipeline.estimatorHandle().size(msg); // 测量消息的尺寸 ..
                 if (size < 0) {
                     size = 0;
                 }
@@ -943,6 +941,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
+            // buffer 中增加消息
+            // 也就是 outboundBuffer 增加消息的同时,能够刺激 输入端 减少生产频率 ...
             outboundBuffer.addMessage(msg, size, promise);
         }
 
@@ -959,9 +959,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             flush0();
         }
 
-        @SuppressWarnings("deprecation")
+        @SuppressWarnings("deprecation") // 立即刷新
         protected void flush0() {
-            if (inFlush0) {
+            if (inFlush0) { // 是否已经在刷新中
                 // Avoid re-entrance
                 return;
             }
@@ -972,16 +972,16 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
 
             inFlush0 = true;
-
+            // 如果管道已经失活,则标记所有等待写入请求失败 ...
             // Mark all pending write requests as failure if the channel is inactive.
             if (!isActive()) {
                 try {
                     // Check if we need to generate the exception at all.
                     if (!outboundBuffer.isEmpty()) {
-                        if (isOpen()) {
+                        if (isOpen()) { // 可能还没有连接 ...
                             outboundBuffer.failFlushed(new NotYetConnectedException(), true);
                         } else {
-                            // Do not trigger channelWritabilityChanged because the channel is closed already.
+                            // Do not trigger channelWritabilityChanged because the channel is closed already. // 管道已经关闭了, 管道写能力改变事件无法处理 ...
                             outboundBuffer.failFlushed(newClosedChannelException(initialCloseCause, "flush0()"), false);
                         }
                     }
@@ -1146,6 +1146,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      * 在注册过程中 将会在Channel 注册 它的EventLoop 之后 调用此方法 ..
      * <p>
      * Sub-classes may override this method
+     *
+     * 一般这个时候,啥都准备好了,可以开始关注事件了 ...
      */
     protected void doRegister() throws Exception {
         // NOOP
@@ -1191,11 +1193,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     protected abstract void doBeginRead() throws Exception;
 
     /**
-     * Flush the content of the given buffer to the remote peer.
+     * Flush the content of the given buffer to the remote peer.  刷新给定buffer的内容到 远端 ...
      */
     protected abstract void doWrite(ChannelOutboundBuffer in) throws Exception;
 
-    /**
+    /**  当一个新的消息增加到管道的buffer中,此方法会执行, 因此Channel 实现可以转换这个消息为其他类型的消息 ... 例如 堆buffer -> directBuffer ...
      * Invoked when a new message is added to a {@link ChannelOutboundBuffer} of this {@link AbstractChannel}, so that
      * the {@link Channel} implementation converts the message to another. (e.g. heap buffer -> direct buffer)
      */

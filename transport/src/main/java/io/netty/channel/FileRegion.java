@@ -24,13 +24,13 @@ import java.nio.channels.WritableByteChannel;
 /**
  * A region of a file that is sent via a {@link Channel} which supports
  * <a href="https://en.wikipedia.org/wiki/Zero-copy">zero-copy file transfer</a>.
- *
+ * 一个文件的区域 通过一个 Channel (支持零拷贝文件传输的)发送 ...
  * <h3>Upgrade your JDK / JRE</h3>
- *
+ * 升级你的JDK / JRE ...
  * {@link FileChannel#transferTo(long, long, WritableByteChannel)} has at least
  * four known bugs in the old versions of Sun JDK and perhaps its derived ones.
  * Please upgrade your JDK to 1.6.0_18 or later version if you are going to use
- * zero-copy file transfer.
+ * zero-copy file transfer.  由于FileChannel#transferTo ... 包含了至少4个已知的bug(在旧版本) ... 或许还有一些派生的已知错误 ..
  * <ul>
  * <li><a href="https://bugs.java.com/bugdatabase/view_bug.do?bug_id=5103988">5103988</a>
  *   - FileChannel.transferTo() should return -1 for EAGAIN instead throws IOException</li>
@@ -43,7 +43,7 @@ import java.nio.channels.WritableByteChannel;
  * </ul>
  *
  * <h3>Check your operating system and JDK / JRE</h3>
- *
+ *  检查你的操作系统和JDK/JRE .. 如果不支持零拷贝文件传输,但是你使用FileRegion 进行文件发送,则可能会失败并且有可能产生更坏的性能 。。 例如在windows上发送大文件将不会工作 ...
  * If your operating system (or JDK / JRE) does not support zero-copy file
  * transfer, sending a file with {@link FileRegion} might fail or yield worse
  * performance.  For example, sending a large file doesn't work well in Windows.

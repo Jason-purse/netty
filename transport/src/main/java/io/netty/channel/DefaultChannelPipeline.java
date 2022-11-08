@@ -67,13 +67,12 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
 
     /**
-     * 反之说明 head 是 右边(outbound)
+     * head 是右边, 但是它负责  向下传播事件(根据对应handler 的execution operation) ...
      */
     final HeadContext head;
 
     /**
-     * 从 channel.read 可以看出 ...
-     * tail 表示 inbound 一端, 使用I/O 线程进行数据的读取 ...
+     * tail 是左边,从I/O 线程读取数据,然后不断传递(tail.read() -> ....inboundhandlers)
      */
     final TailContext tail;
 
@@ -83,7 +82,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     private final boolean touch = ResourceLeakDetector.isEnabled();
 
     private Map<EventExecutorGroup, EventExecutor> childExecutors;
-    private volatile MessageSizeEstimator.Handle estimatorHandle;
+    private volatile MessageSizeEstimator.Handle estimatorHandle; // 消息尺寸评估器 ..
     private boolean firstRegistration = true;
 
     /**
@@ -734,7 +733,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
-    final void invokeHandlerAddedIfNeeded() {
+    final void invokeHandlerAddedIfNeeded() { // 也就是第一次管道注册的时候回调 ...
         assert channel.eventLoop().inEventLoop();
         if (firstRegistration) {
             firstRegistration = false;
@@ -987,7 +986,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline fireChannelActive() {
-        System.out.println("pipeline 事件触发");
+        logger.info("current channel {} pipeline fireChannelActive 事件触发",channel);
         AbstractChannelHandlerContext.invokeChannelActive(head);
         return this;
     }
@@ -1013,6 +1012,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline fireChannelRead(Object msg) {
+        // 肯定从head进入
         AbstractChannelHandlerContext.invokeChannelRead(head, msg);
         return this;
     }
@@ -1025,6 +1025,8 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline fireChannelWritabilityChanged() {
+        // 由head 进行输入
+        // 那么head 是左边(channelInbound???)
         AbstractChannelHandlerContext.invokeChannelWritabilityChanged(head);
         return this;
     }
@@ -1330,8 +1332,11 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     /**
      * Called once the {@link ChannelInboundHandler#channelWritabilityChanged(ChannelHandlerContext)} event hit
      * the end of the {@link ChannelPipeline}.
+     * 一旦ChannelInboundHandler#channelWritabilityChanged(ChannelHandlerContext) 事件已经经过了ChannelPipeline的尾部时进行调用
      */
     protected void onUnhandledChannelWritabilityChanged() {
+
+        // 一旦 碰见了 tail,那么表示这个事件没人处理 ... (pipeline 可以覆盖实现)
     }
 
     @UnstableApi
@@ -1373,8 +1378,8 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) {
-            System.out.println("管道激活 ....");
-            onUnhandledInboundChannelActive();
+            logger.info("current channel {} 管道激活 ....",channel);
+            onUnhandledInboundChannelActive(); // tail 这里提示, 未处理的输入管道激活事件 (因为它到达了tail 底部)
         }
 
         @Override
@@ -1384,6 +1389,8 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelWritabilityChanged(ChannelHandlerContext ctx) {
+            // 如果是tail ,那么它做的事情是?
+
             onUnhandledChannelWritabilityChanged();
         }
 
@@ -1475,18 +1482,18 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void read(ChannelHandlerContext ctx) {
-            // 其他的方法根本不需要看read ...
+            // 还是调回 head,尝试通过 unsafe 进行处理(添加感兴趣的操作)
             unsafe.beginRead();
         }
 
         @Override
         public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
-            unsafe.write(msg, promise);
+            unsafe.write(msg, promise); // 通过head 的unsafe 进行写入
         }
 
         @Override
         public void flush(ChannelHandlerContext ctx) {
-            unsafe.flush();
+            unsafe.flush(); // 刷新消息
         }
 
         @Override
@@ -1502,6 +1509,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             // 从这里可以看到,HandlerAdded 事件发生在  ChannelRegistered之前 ...
 
             // 执行HandlerAdded 事件 ..
+            // 这里执行的目的, ChannelInitializer 中套娃  ChannelInitializer  ..
+            // 所以这一步是为了channel的处理器最终是简单的Channel..Handler ...
+            // 但是仅仅第一次会执行,那么后续增加的  ChannelInitializer 就仅仅靠 fireChannelRegistered 传播到 ChannelRegistered事件,实现ChannelInitializer的init执行
+            // 实现最终有效的ChannelHandler 注册 ...
             invokeHandlerAddedIfNeeded();
 
             // 并向下传递到其他ChannelHandler ..
@@ -1546,7 +1557,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         private void readIfIsAutoRead() {
             if (channel.config().isAutoRead()) {
-                channel.read();
+                channel.read(); // 这里就开启了管道的read (也就是一个read 事件)
             }
         }
 
@@ -1557,6 +1568,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelWritabilityChanged(ChannelHandlerContext ctx) {
+            // 如果是 head 则向下触发
             ctx.fireChannelWritabilityChanged();
         }
     }

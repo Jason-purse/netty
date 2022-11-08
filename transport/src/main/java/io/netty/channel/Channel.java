@@ -246,7 +246,7 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
          * Return the assigned {@link RecvByteBufAllocator.Handle} which will be used to allocate {@link ByteBuf}'s when
          * receiving data.
          *
-         * 当接收到数据的时候
+         * 当接收到数据的时候 这被用来分配 ByteBuffer(通过返回Handle) ...
          */
         RecvByteBufAllocator.Handle recvBufAllocHandle();
 
@@ -325,7 +325,7 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
         void beginRead();
 
         /**
-         * Schedules a write operation.
+         * Schedules a write operation. 调度一个写操作 ...
          */
         void write(Object msg, ChannelPromise promise);
 

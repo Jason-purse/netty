@@ -14,7 +14,7 @@
  * under the License.
  */
 package io.netty.channel;
-
+// 管道输入执行器 ?
 public interface ChannelInboundInvoker {
 
     /**
@@ -68,6 +68,7 @@ public interface ChannelInboundInvoker {
      * This will result in having the  {@link ChannelInboundHandler#userEventTriggered(ChannelHandlerContext, Object)}
      * method  called of the next  {@link ChannelInboundHandler} contained in the  {@link ChannelPipeline} of the
      * {@link Channel}.
+     *
      */
     ChannelInboundInvoker fireUserEventTriggered(Object event);
 
@@ -77,6 +78,8 @@ public interface ChannelInboundInvoker {
      * This will result in having the {@link ChannelInboundHandler#channelRead(ChannelHandlerContext, Object)}
      * method  called of the next {@link ChannelInboundHandler} contained in the  {@link ChannelPipeline} of the
      * {@link Channel}.
+     *
+     * 触发ChannelInboundHandler的channelRead ....  Channel的Pipeline中的最近的ChannelInboundHandler将会触发此方法 ...
      */
     ChannelInboundInvoker fireChannelRead(Object msg);
 
@@ -89,6 +92,9 @@ public interface ChannelInboundInvoker {
     /**
      * Triggers an {@link ChannelInboundHandler#channelWritabilityChanged(ChannelHandlerContext)}
      * event to the next {@link ChannelInboundHandler} in the {@link ChannelPipeline}.
+     *
+     * 触发一个ChannelInboundHandler#channelWriteabilityChanged(...context)
+     * 事件到pipeline中的最近一个ChannelInboundHandler ...
      */
     ChannelInboundInvoker fireChannelWritabilityChanged();
 }

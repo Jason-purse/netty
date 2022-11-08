@@ -78,6 +78,9 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
     // 由于通常ChannelInitializer 在一个Bootstrap / ServerBootstrap中的所有管道之间进行共享,所以使用一个Set进行记录 .
     // 这种方式能够减少内存使用(相对于使用Attributes来说)...
     // 也就是通过Set 记录的方式能够比使用上下文中的属性,减少更多的内存 ...
+
+    // 它加入到一个Channel 都会有一个Context,当它做完了初始化的动作,将移除有关上下文的信息 ..
+    // 这里使用Set 是因为有可能共享在多个Channel中 ..
     private final Set<ChannelHandlerContext> initMap = Collections.newSetFromMap(
             new ConcurrentHashMap<ChannelHandlerContext, Boolean>());
 
@@ -111,11 +114,10 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
             // to ensure we not
             // miss an event.
 
+            // 重新派发事件 ChannelRegistered ...
+            // 因为这个时候已经有新的Channel 加入 ...
             ctx.pipeline().fireChannelRegistered();
 
-            // 现在初始化管道完毕,则移除这个管道的所有状态 ..
-            // 有一个疑问,为什么还需要让当前处理器接收 fireChannelRegistered 事件 ..
-            // 回想了一下,一次性事件并且应该被处理,丢弃后也无所谓了,相反不处理好像不是一件好事情 ...
             // We are done with init the Channel, removing all the state for the Channel now.
             removeState(ctx);
         } else {

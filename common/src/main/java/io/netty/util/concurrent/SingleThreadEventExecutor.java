@@ -75,7 +75,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
             AtomicReferenceFieldUpdater.newUpdater(
                     SingleThreadEventExecutor.class, ThreadProperties.class, "threadProperties");
 
-    // 任务队列
+    // 任务队列(执行任务的队列) ..
     private final Queue<Runnable> taskQueue;
 
     private volatile Thread thread;
@@ -1026,7 +1026,7 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private static final long SCHEDULE_PURGE_INTERVAL = TimeUnit.SECONDS.toNanos(1);
 
-    // 启动一个线程 ...
+    // 启动一个线程 ...  事件执行组开始启动真正的线程用于处理任务(如果有必要) ...
     private void startThread() {
         if (state == ST_NOT_STARTED) {
             // 原子性判断,启动线程 ...

@@ -239,9 +239,12 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             System.out.println("ServerBootstrap channel Read invoked .........");
             final Channel child = (Channel) msg;
 
+            // 将之前准备好的消息处理器加入 ...
             child.pipeline().addLast(childHandler);
 
+            // 开始设置Channel选项 ..
             setChannelOptions(child, childOptions, logger);
+            // 设置属性
             setAttributes(child, childAttrs);
 
             try {
@@ -255,6 +258,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                     }
                 });
             } catch (Throwable t) {
+                // 如果注册的过程中,发生了异常,直接强制关闭
                 forceClose(child, t);
             }
         }

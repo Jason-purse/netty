@@ -17,12 +17,7 @@ package io.netty.util.concurrent;
 
 import java.util.Arrays;
 
-/**
- * @author FLJ
- * @date 2022/10/21
- * @time 16:13
- * @Description DefaultFuture 的监听器些
- */
+// DefaultFuture 的监听器些
 final class DefaultFutureListeners {
 
     // 监听器 ..

@@ -18,11 +18,15 @@ package io.netty.channel;
 /**
  * {@link ChannelHandler} which adds callbacks for state changes. This allows the user
  * to hook in to state changes easily.
+ *
+ * 这是一些增加了状态改变的回调的ChannelHandler,允许用户能够容易的回调状态改变 ...
  */
 public interface ChannelInboundHandler extends ChannelHandler {
 
     /**
      * The {@link Channel} of the {@link ChannelHandlerContext} was registered with its {@link EventLoop}
+     *
+     * 上下文的Channel 已经注册到EventLoop中 ...
      */
     void channelRegistered(ChannelHandlerContext ctx) throws Exception;
 
@@ -31,7 +35,7 @@ public interface ChannelInboundHandler extends ChannelHandler {
      */
     void channelUnregistered(ChannelHandlerContext ctx) throws Exception;
 
-    /**
+    /**  上下文的Channel 已经激活了 ...
      * The {@link Channel} of the {@link ChannelHandlerContext} is now active
      */
     void channelActive(ChannelHandlerContext ctx) throws Exception;
@@ -44,6 +48,8 @@ public interface ChannelInboundHandler extends ChannelHandler {
 
     /**
      * Invoked when the current {@link Channel} has read a message from the peer.
+     *
+     * 当当前管道已经读取了来自对端的消息 ..时进行执行 ...
      */
     void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception;
 
@@ -63,6 +69,8 @@ public interface ChannelInboundHandler extends ChannelHandler {
     /**
      * Gets called once the writable state of a {@link Channel} changed. You can check the state with
      * {@link Channel#isWritable()}.
+     *
+     * 当管道的可写状态发生改变时,你能够使用Channel#isWritable()检测 状态 ...
      */
     void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception;
 

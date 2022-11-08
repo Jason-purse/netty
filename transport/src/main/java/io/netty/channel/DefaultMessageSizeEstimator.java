@@ -35,13 +35,13 @@ public final class DefaultMessageSizeEstimator implements MessageSizeEstimator {
 
         @Override
         public int size(Object msg) {
-            if (msg instanceof ByteBuf) {
+            if (msg instanceof ByteBuf) { // 如果是byteBuf 直接返回可读字节数..
                 return ((ByteBuf) msg).readableBytes();
             }
-            if (msg instanceof ByteBufHolder) {
+            if (msg instanceof ByteBufHolder) { // 还是一样的 ..
                 return ((ByteBufHolder) msg).content().readableBytes();
             }
-            if (msg instanceof FileRegion) {
+            if (msg instanceof FileRegion) { // 零拷贝文件处理
                 return 0;
             }
             return unknownSize;
@@ -49,7 +49,7 @@ public final class DefaultMessageSizeEstimator implements MessageSizeEstimator {
     }
 
     /**
-     * Return the default implementation which returns {@code 8} for unknown messages.
+     * Return the default implementation which returns {@code 8} for unknown messages. 对于未知消息总是返回8的默认实现 ...
      */
     public static final MessageSizeEstimator DEFAULT = new DefaultMessageSizeEstimator(8);
 

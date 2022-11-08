@@ -449,11 +449,14 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     @Override
     public ChannelHandlerContext fireChannelRead(final Object msg) {
+        // 寻找inbound上下文且关心 CHANNEL_READ的handler ...
         invokeChannelRead(findContextInbound(MASK_CHANNEL_READ), msg);
         return this;
     }
 
+    // 向下进行context 遍历 ...
     static void invokeChannelRead(final AbstractChannelHandlerContext next, Object msg) {
+        // touch
         final Object m = next.pipeline.touch(ObjectUtil.checkNotNull(msg, "msg"), next);
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
@@ -545,6 +548,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             next.invokeChannelWritabilityChanged();
         } else {
             Tasks tasks = next.invokeTasks;
+            // 如果任务为空,则增加新的任务
             if (tasks == null) {
                 next.invokeTasks = tasks = new Tasks(next);
             }
@@ -552,6 +556,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         }
     }
 
+    // 回到上下文 ..
     private void invokeChannelWritabilityChanged() {
         if (invokeHandler()) {
             try {
@@ -565,6 +570,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                 } else if (handler instanceof ChannelDuplexHandler) {
                     ((ChannelDuplexHandler) handler).channelWritabilityChanged(this);
                 } else {
+                    // 还是需要inbound handler 进行处理 ..
                     ((ChannelInboundHandler) handler).channelWritabilityChanged(this);
                 }
             } catch (Throwable t) {
@@ -853,7 +859,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     @Override
     public ChannelHandlerContext read() {
-        final AbstractChannelHandlerContext next = findContextOutbound(MASK_READ);
+        final AbstractChannelHandlerContext next = findContextOutbound(MASK_READ); // 从outbound 上下文中寻找 read_mark(这是故意的操作) ...
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
             next.invokeRead();
@@ -916,7 +922,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             write(msg, promise);
         }
     }
-
+    // 写入的核心方法 ....
     private void invokeWrite0(Object msg, ChannelPromise promise) {
         try {
             // DON'T CHANGE
@@ -1011,6 +1017,8 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         final AbstractChannelHandlerContext next = findContextOutbound(flush ?
                 (MASK_WRITE | MASK_FLUSH) : MASK_WRITE);
         final Object m = pipeline.touch(msg, next);
+
+
         EventExecutor executor = next.executor();
         if (executor.inEventLoop()) {
             if (flush) {
@@ -1019,6 +1027,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                 next.invokeWrite(m, promise);
             }
         } else {
+            // 创建一个写任务
             final WriteTask task = WriteTask.newInstance(next, m, promise, flush);
             System.out.println("发送任务 ...");
             if (!safeExecute(executor, task, promise, m, !flush)) {
@@ -1204,6 +1213,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
         if (setAddComplete()) {
             // 核心方法回调 ..
+            // 如果这里依旧是一个ChannelInitializer (类似于这种处理器, 循环套娃 handlerAdded / channelRegistered ...  -》 init  -> addLast -> handlerAdded / channelRegistered ..)
             handler().handlerAdded(this);
         }
     }
@@ -1307,8 +1317,8 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         private static final boolean ESTIMATE_TASK_SIZE_ON_SUBMIT =
                 SystemPropertyUtil.getBoolean("io.netty.transport.estimateSizeOnSubmit", true);
 
-        // Assuming compressed oops, 12 bytes obj header, 4 ref fields and one int field
-        private static final int WRITE_TASK_OVERHEAD =
+        // Assuming compressed oops, 12 bytes obj header, 4 ref fields and one int field  12 + 16 + 4 = 32
+        private static final int WRITE_TASK_OVERHEAD = // 写任务的消耗
                 SystemPropertyUtil.getInt("io.netty.transport.writeTaskSizeOverhead", 32);
 
         private final Handle<WriteTask> handle;
@@ -1335,7 +1345,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                 task.size = 0;
             }
             if (flush) {
-                task.size |= Integer.MIN_VALUE;
+                task.size |= Integer.MIN_VALUE; // 这里为什么要或运算 ??
             }
         }
 
@@ -1346,7 +1356,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                 if (size >= 0) {
                     ctx.invokeWrite(msg, promise);
                 } else {
-                    ctx.invokeWriteAndFlush(msg, promise);
+                    ctx.invokeWriteAndFlush(msg, promise); // 那边用MIN_VALUE 消除(那么就算Integer.MAX_VALUE size的消息来到,那么或运算,依旧是小于0)  = -1(例如 -128  ~ 127 或运算必然是 -1)
                 }
             } finally {
                 recycle();
@@ -1396,6 +1406,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         private final Runnable invokeChannelWritableStateChangedTask = new Runnable() {
             @Override
             public void run() {
+                // 本质上实现在context之间传递这个事件触发
                 next.invokeChannelWritabilityChanged();
             }
         };

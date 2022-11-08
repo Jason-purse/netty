@@ -19,7 +19,7 @@ import io.netty.util.Recycler;
 
 /**
  * Light-weight object pool.
- *
+ * 轻量级的对象池 ..
  * @param <T> the type of the pooled object
  */
 public abstract class ObjectPool<T> {
@@ -34,19 +34,19 @@ public abstract class ObjectPool<T> {
 
     /**
      * Handle for an pooled {@link Object} that will be used to notify the {@link ObjectPool} once it can
-     * reuse the pooled {@link Object} again.
+     * reuse the pooled {@link Object} again.   他是一个池化的对象的句柄: 一旦这个池化的对象能够再次重用,将能够通知 ObjectPool
      * @param <T>
      */
     public interface Handle<T> {
         /**
-         * Recycle the {@link Object} if possible and so make it ready to be reused.
+         * Recycle the {@link Object} if possible and so make it ready to be reused. 也就是说可以通知ObjectPool回收句柄 ...
          */
         void recycle(T self);
     }
 
     /**
      * Creates a new Object which references the given {@link Handle} and calls {@link Handle#recycle(Object)} once
-     * it can be re-used.
+     * it can be re-used.  通过给定的Handle创建新的对象(当对象可以重用时,则调用Handle#recycle(Object) ...
      *
      * @param <T> the type of the pooled object
      */
