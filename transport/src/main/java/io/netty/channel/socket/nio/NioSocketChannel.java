@@ -125,6 +125,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
     @Override
     protected SocketChannel javaChannel() {
+        // 只需要获取并强转
         return (SocketChannel) super.javaChannel();
     }
 
@@ -352,8 +353,12 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
     @Override
     protected int doReadBytes(ByteBuf byteBuf) throws Exception {
+        // 对于真正的Nio Socket Channel 就很简单了 ..
+        // 分配缓冲区
         final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
+        // 根据缓冲区内剩余空间进行 写入(尝试标记) ..
         allocHandle.attemptedBytesRead(byteBuf.writableBytes());
+        // 然后根据尺寸标记进行写入给定的ByteBuf ...
         return byteBuf.writeBytes(javaChannel(), allocHandle.attemptedBytesRead());
     }
 

@@ -39,6 +39,8 @@ import static io.netty.channel.internal.ChannelUtils.WRITE_STATUS_SNDBUF_FULL;
 
 /**
  * {@link AbstractNioChannel} base class for {@link Channel}s that operate on bytes.
+ *
+ * 这是一个Channel 操作字节的 AbstractNioChannel的基类 ...
  */
 public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
@@ -54,6 +56,8 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
             ((AbstractNioUnsafe) unsafe()).flush0();
         }
     };
+
+    // 在读取的时候由于错误输入关闭
     private boolean inputClosedSeenErrorOnRead;
 
     /**
@@ -86,14 +90,20 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     }
 
     final boolean shouldBreakReadReady(ChannelConfig config) {
+        // 输入如果关闭了 并且 (读取时发生了错误 或者 非半包) 则可以打断读 ready
         return isInputShutdown0() && (inputClosedSeenErrorOnRead || !isAllowHalfClosure(config));
     }
 
+    // 允许半包 ??
     private static boolean isAllowHalfClosure(ChannelConfig config) {
+        // socket channel 半包配置 ...
         return config instanceof SocketChannelConfig &&
                 ((SocketChannelConfig) config).isAllowHalfClosure();
     }
 
+    /**
+     * 真正来自 ByteBuf的 Unsafe
+     */
     protected class NioByteUnsafe extends AbstractNioUnsafe {
 
         private void closeOnRead(ChannelPipeline pipeline) {
@@ -133,7 +143,9 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
         @Override
         public final void read() {
+            // 读取配置 ..
             final ChannelConfig config = config();
+            // 应该打断读准备
             if (shouldBreakReadReady(config)) {
                 clearReadPending();
                 return;
@@ -141,6 +153,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
             final ChannelPipeline pipeline = pipeline();
             final ByteBufAllocator allocator = config.getAllocator();
             final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle();
+            // 重置buf 大概估算一个暂存这些数据的大小 ..
             allocHandle.reset(config);
 
             ByteBuf byteBuf = null;
@@ -148,22 +161,36 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
             try {
                 do {
                     byteBuf = allocHandle.allocate(allocator);
+
                     allocHandle.lastBytesRead(doReadBytes(byteBuf));
+                    // lastBytesRead(n) 方法已经说明,如果为负数,则下一次的lastBytesRead() 必然是负数
+                    // 假设这里为负数 或者 0,则标志中断 ...
                     if (allocHandle.lastBytesRead() <= 0) {
                         // nothing was read. release the buffer.
                         byteBuf.release();
                         byteBuf = null;
+                        // 再次判断, 如果小于0,标识需要关闭,(已经接收到 EOF,没有任何数据需要进行读) ..
                         close = allocHandle.lastBytesRead() < 0;
                         if (close) {
                             // There is nothing left to read as we received an EOF.
+                            // 设置读等待
                             readPending = false;
                         }
                         break;
                     }
 
+                    // 假设上一次读取到数据,那么增加消息读的数量 ...
                     allocHandle.incMessagesRead(1);
+
+                    // 继续设定 读等待false ..
+                    // 因为已经在开始读取数据了 ..
                     readPending = false;
-                    pipeline.fireChannelRead(byteBuf); // 触发消息读 ...
+                    // 这个时候开始真正的触发消息读回调 ..
+                    // 也就是读取到的消息处理
+
+                    // 那你可能会很疑惑,如果包是一个不完整的会怎么办 ..
+                    // 很显然,netty帮我们通过channelHandler的形式处理,在获得全包的时候向下传递消息, 那么我们就能够正确的处理到消息 ...
+                    pipeline.fireChannelRead(byteBuf); // 触发消息读 ...(进行消息处理) ..
                     byteBuf = null;
                 } while (allocHandle.continueReading());
 
@@ -312,6 +339,8 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
     /**
      * Read bytes into the given {@link ByteBuf} and return the amount.
+     *
+     * 读取字节到 给定的ByteBuf 并返回读取数量 ...
      */
     protected abstract int doReadBytes(ByteBuf buf) throws Exception;
 

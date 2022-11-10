@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 
 /**
  * Simplistic {@link ByteBufAllocator} implementation that does not pool anything.
+ * 乐观的ByteBufAllocator 实现(它不做任何池化事情) ...
  */
 public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator implements ByteBufAllocatorMetricProvider {
 
@@ -32,6 +33,8 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
 
     /**
      * Default instance which uses leak-detection for direct buffers.
+     *
+     * 默认实例(对于直接buffer使用泄露检测的分配器) ...
      */
     public static final UnpooledByteBufAllocator DEFAULT =
             new UnpooledByteBufAllocator(PlatformDependent.directBufferPreferred());
@@ -54,6 +57,8 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
      * @param disableLeakDetector {@code true} if the leak-detection should be disabled completely for this
      *                            allocator. This can be useful if the user just want to depend on the GC to handle
      *                            direct buffers when not explicit released.
+     *
+     *                            如果希望仅仅GC 处理(而不是显式的释放,则非常有用(false) )
      */
     public UnpooledByteBufAllocator(boolean preferDirect, boolean disableLeakDetector) {
         this(preferDirect, disableLeakDetector, PlatformDependent.useDirectBufferNoCleaner());
@@ -73,6 +78,9 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
     public UnpooledByteBufAllocator(boolean preferDirect, boolean disableLeakDetector, boolean tryNoCleaner) {
         super(preferDirect);
         this.disableLeakDetector = disableLeakDetector;
+        // 尝试非Cleaner的方式(需要存在 unsafe才能这样做 并且包含无cleaner构造器的形式) ..
+        // 虽然前面的 tryNoCleaner 尝试可以在无Unsafe / 或者 有 hasDirectBufferNoCleanerConstructor的情况下使用 ..
+        // 但是这里必须保证 存在这些条件
         noCleaner = tryNoCleaner && PlatformDependent.hasUnsafe()
                 && PlatformDependent.hasDirectBufferNoCleanerConstructor();
     }
@@ -246,7 +254,12 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
         }
     }
 
+    // 非池化的 ..
     private static final class UnpooledByteBufAllocatorMetric implements ByteBufAllocatorMetric {
+
+        // 保证线程安全 ..
+
+        // 计数器
         final LongCounter directCounter = PlatformDependent.newLongCounter();
         final LongCounter heapCounter = PlatformDependent.newLongCounter();
 

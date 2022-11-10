@@ -244,6 +244,11 @@ import java.nio.charset.UnsupportedCharsetException;
  *
  * Please refer to {@link ByteBufInputStream} and
  * {@link ByteBufOutputStream}.
+ *
+ *
+ *
+ * netty 提供的强大的ByteBuf ..
+ * 我们可以基于此实现Bytes 操作...
  */
 public abstract class ByteBuf implements ReferenceCounted, Comparable<ByteBuf>, ByteBufConvertible {
 

@@ -48,6 +48,7 @@ final class PlatformDependent0 {
     private static final Constructor<?> DIRECT_BUFFER_CONSTRUCTOR;
     private static final Throwable EXPLICIT_NO_UNSAFE_CAUSE = explicitNoUnsafeCause0();
     private static final Method ALLOCATE_ARRAY_METHOD;
+    // 统一切片 .. 以及共享 (让后续的切片可见) ...
     private static final Method ALIGN_SLICE;
     private static final int JAVA_VERSION = javaVersion0();
     private static final boolean IS_ANDROID = isAndroid0();

@@ -44,16 +44,20 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Abstract base class for {@link Channel} implementations which use a Selector based approach.
+ *
+ * 这是一种基于选择器方式的Channel实现基类 ...
  */
 public abstract class AbstractNioChannel extends AbstractChannel {
 
     private static final InternalLogger logger =
             InternalLoggerFactory.getInstance(AbstractNioChannel.class);
 
+    // 真正底层 JDK 给定的可选择 Channel ...
     private final SelectableChannel ch;
     protected final int readInterestOp;
     // 这个管道所关注的操作的代表 KEY ...
     volatile SelectionKey selectionKey;
+    // 标志着读事件 将在未来一段时间内发生 ..
     boolean readPending;
     private final Runnable clearReadPendingRunnable = new Runnable() {
         @Override
@@ -104,7 +108,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     public NioUnsafe unsafe() {
         return (NioUnsafe) super.unsafe();
     }
-
+    // 拿到 Channel ..
     protected SelectableChannel javaChannel() {
         return ch;
     }
@@ -159,6 +163,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
     /**
      * Set read pending to {@code false}.
+     *
+     * 设置读挂起 = false ...
      */
     protected final void clearReadPending() {
         if (isRegistered()) {
@@ -183,6 +189,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         }
     }
 
+    // 设置读挂起 = false
+    // pending 本身有挂起 / 待定 (将来的时间里) ...
+    // 在什么期间 / 直到什么为止 ,等待 .. 之际
     private void clearReadPending0() {
         readPending = false;
         ((AbstractNioUnsafe) unsafe()).removeReadOp();
@@ -205,7 +214,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         /**
          * Read from underlying {@link SelectableChannel}
-         * 从管道中读取 ...
+         * 从底层的可选择Channel 读取 ...
          */
         void read();
 
@@ -218,11 +227,13 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
     protected abstract class AbstractNioUnsafe extends AbstractUnsafe implements NioUnsafe {
 
+        // 移除读操作 ...
         protected final void removeReadOp() {
             SelectionKey key = selectionKey();
             // Check first if the key is still valid as it may be canceled as part of the deregistration
             // from the EventLoop
             // See https://github.com/netty/netty/issues/2104
+            // 首先检查这个Key 是否仍然是有效的(它也许可能已经取消 - 在事件循环取消注册过程中) ..
             if (!key.isValid()) {
                 return;
             }

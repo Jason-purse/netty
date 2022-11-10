@@ -14,7 +14,8 @@
  * under the License.
  */
 package io.netty.buffer;
-
+// 对于netty 关注的就是使用堆内存的数量 以及使用直接内存的数量
+// 由于这些性质,它可以组合composite ByteBuf,或者零拷贝ByteBuf ... 又或是池化 / 非池化的ByteBuf..
 public interface ByteBufAllocatorMetric {
     /**
      * Returns the number of bytes of heap memory used by a {@link ByteBufAllocator} or {@code -1} if unknown.

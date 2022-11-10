@@ -84,6 +84,7 @@ public final class PlatformDependent {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(PlatformDependent.class);
 
+    // 最大直接内存尺寸参数表达式 ...
     private static final Pattern MAX_DIRECT_MEMORY_SIZE_ARG_PATTERN = Pattern.compile(
             "\\s*-XX:MaxDirectMemorySize\\s*=\\s*([0-9]+)\\s*([kKmMgG]?)\\s*$");
 
@@ -93,7 +94,11 @@ public final class PlatformDependent {
 
     // 不可用原因 ..
     private static final Throwable UNSAFE_UNAVAILABILITY_CAUSE = unsafeUnavailabilityCause0();
+
+    // 根据直接buffer的偏好性 .
     private static final boolean DIRECT_BUFFER_PREFERRED;
+
+    // 估算的最大直接内存
     private static final long MAX_DIRECT_MEMORY = estimateMaxDirectMemory();
 
     private static final int MPSC_CHUNK_SIZE =  1024;
@@ -109,7 +114,10 @@ public final class PlatformDependent {
     private static final String NORMALIZED_OS = normalizeOs(SystemPropertyUtil.get("os.name", ""));
 
     // keep in sync with maven's pom.xml via os.detection.classifierWithLikes!
+    // 通过os.detection.classifierWithLikes 和 maven的pom.xml 进行同步 ...
     private static final String[] ALLOWED_LINUX_OS_CLASSIFIERS = {"fedora", "suse", "arch"};
+
+
     private static final Set<String> LINUX_OS_CLASSIFIERS;
 
     private static final boolean IS_WINDOWS = isWindows0();
@@ -120,6 +128,7 @@ public final class PlatformDependent {
     private static final int ADDRESS_SIZE = addressSize0();
     private static final boolean USE_DIRECT_BUFFER_NO_CLEANER;
     private static final AtomicLong DIRECT_MEMORY_COUNTER;
+    // 直接内存的限制 ..
     private static final long DIRECT_MEMORY_LIMIT;
     private static final ThreadLocalRandomProvider RANDOM_PROVIDER;
     private static final Cleaner CLEANER;
@@ -162,10 +171,17 @@ public final class PlatformDependent {
         // * == 0  - Use cleaner, Netty will not enforce max memory, and instead will defer to JDK.
         // * >  0  - Don't use cleaner. This will limit Netty's total direct memory
         //           (note: that JDK's direct memory limit is independent of this).
+
+        // 小于0,标识不使用cleaner, 并且继承来自java的最大直接内存,这种情况下实际的最大直接内存 可以是 由JDK定义的 最大内存的2倍 ...
+        // 但是, 翻看代码,直接内存并没有设置为两倍 ...
+        // 等于0,使用cleaner, Netty 将不强制最大内存,并且相反 尊重JDK 的配置...
+        // 大于0, 不使用cleaner,限制Netty的最大直接内存 ..(注意 JDk的直接内存限制不依赖于这个) ...
         long maxDirectMemory = SystemPropertyUtil.getLong("io.netty.maxDirectMemory", -1);
 
         if (maxDirectMemory == 0 || !hasUnsafe() || !PlatformDependent0.hasDirectBufferNoCleanerConstructor()) {
+            // 可以使用cleaner ..
             USE_DIRECT_BUFFER_NO_CLEANER = false;
+            // 计数器 ..
             DIRECT_MEMORY_COUNTER = null;
         } else {
             USE_DIRECT_BUFFER_NO_CLEANER = true;
@@ -200,10 +216,12 @@ public final class PlatformDependent {
                 CLEANER = CleanerJava6.isSupported() ? new CleanerJava6() : NOOP;
             }
         } else {
+            // 安卓 不首选偏好 直接buffer
             CLEANER = NOOP;
         }
 
         // We should always prefer direct buffers by default if we can use a Cleaner to release direct buffers.
+        // 总是偏好于直接Buffer(如果能够使用Cleaner 释放直接buffer) ..
         DIRECT_BUFFER_PREFERRED = CLEANER != NOOP
                                   && !SystemPropertyUtil.getBoolean("io.netty.noPreferDirect", false);
         if (logger.isDebugEnabled()) {
@@ -213,6 +231,8 @@ public final class PlatformDependent {
         /*
          * We do not want to log this message if unsafe is explicitly disabled. Do not remove the explicit no unsafe
          * guard.
+         *
+         * 如果 unsafe 显式禁用(并不想记录这条消息), 也就是说真的没有Unsafe 才会记录 ...
          */
         if (CLEANER == NOOP && !PlatformDependent0.isExplicitNoUnsafe()) {
             logger.info(
@@ -221,10 +241,12 @@ public final class PlatformDependent {
                     "instability.");
         }
 
+        // 允许的标识 ..
         final Set<String> allowedClassifiers = Collections.unmodifiableSet(
                 new HashSet<String>(Arrays.asList(ALLOWED_LINUX_OS_CLASSIFIERS)));
         final Set<String> availableClassifiers = new LinkedHashSet<String>();
 
+        // 收集出linux os 分类器列表
         if (!addPropertyOsClassifiers(allowedClassifiers, availableClassifiers)) {
             addFilesystemOsClassifiers(allowedClassifiers, availableClassifiers);
         }
@@ -287,11 +309,14 @@ public final class PlatformDependent {
         }
     }
 
+    // 增加属性 OS 标识符 ..
     static boolean addPropertyOsClassifiers(Set<String> allowedClassifiers, Set<String> availableClassifiers) {
-        // empty: -Dio.netty.osClassifiers (no distro specific classifiers for native libs)
+        // empty: -Dio.netty.osClassifiers (no distro specific classifiers for native libs  native libs 没有特定的分类器)
         // single ID: -Dio.netty.osClassifiers=ubuntu
         // pair ID, ID_LIKE: -Dio.netty.osClassifiers=ubuntu,debian
         // illegal otherwise
+
+        // 支持 empty / 单个 id / 成对 id ,Id_like ...
         String osClassifiersPropertyName = "io.netty.osClassifiers";
         String osClassifiers = SystemPropertyUtil.get(osClassifiersPropertyName);
         if (osClassifiers == null) {
@@ -302,6 +327,8 @@ public final class PlatformDependent {
             return true;
         }
         String[] classifiers = osClassifiers.split(",");
+
+        // 例如","
         if (classifiers.length == 0) {
             throw new IllegalArgumentException(
                     osClassifiersPropertyName + " property is not empty, but contains no classifiers: "
@@ -818,6 +845,7 @@ public final class PlatformDependent {
         decrementMemoryCounter(capacity);
     }
 
+    //
     public static boolean hasAlignDirectByteBuffer() {
         return hasUnsafe() || PlatformDependent0.hasAlignSliceMethod();
     }
@@ -1211,6 +1239,8 @@ public final class PlatformDependent {
      * <p>
      * This will produce debug log output when called.
      *
+     * 估算JVM 可用的直接内存的最大数量 ...
+     *
      * @return The estimated max direct memory, in bytes.
      */
     public static long estimateMaxDirectMemory() {
@@ -1218,6 +1248,7 @@ public final class PlatformDependent {
 
         ClassLoader systemClassLoader = null;
         try {
+            // 获取系统类加载器 ...
             systemClassLoader = getSystemClassLoader();
 
             // When using IBM J9 / Eclipse OpenJ9 we should not use VM.maxDirectMemory() as it not reflects the
@@ -1241,6 +1272,9 @@ public final class PlatformDependent {
             return maxDirectMemory;
         }
 
+        // 这个时候尝试估算
+        // 根据JVM 选项 ... 解析 ..
+        // 使用反射,因为Andriod 没有这些类 ...
         try {
             // Now try to get the JVM option (-XX:MaxDirectMemorySize) and parse it.
             // Note that we are using reflection because Android doesn't have these classes.
@@ -1255,21 +1289,28 @@ public final class PlatformDependent {
             List<String> vmArgs = (List<String>) runtimeClass.getDeclaredMethod("getInputArguments").invoke(runtime);
             for (int i = vmArgs.size() - 1; i >= 0; i --) {
                 Matcher m = MAX_DIRECT_MEMORY_SIZE_ARG_PATTERN.matcher(vmArgs.get(i));
+                // 如果不匹配 ..则继续 ..
                 if (!m.matches()) {
                     continue;
                 }
-
+                // 将第一个数进行解析
                 maxDirectMemory = Long.parseLong(m.group(1));
+                // 并进行解析 ...
                 switch (m.group(2).charAt(0)) {
+                    // k (1024byte单位) ...
                     case 'k': case 'K':
                         maxDirectMemory *= 1024;
                         break;
+                    // 兆(1024 * 1024 byte 单位)
                     case 'm': case 'M':
                         maxDirectMemory *= 1024 * 1024;
                         break;
+                    // G( 1024 * 1024 * 1024 bytes) ..
                     case 'g': case 'G':
                         maxDirectMemory *= 1024 * 1024 * 1024;
                         break;
+
+                    // 如果没有,就是bytes ..
                     default:
                         break;
                 }
@@ -1279,7 +1320,9 @@ public final class PlatformDependent {
             // Ignore
         }
 
+        // 这个时候,如果还是小于0
         if (maxDirectMemory <= 0) {
+            // 则可以获取,运行时(jvm的最大内存的两倍) ...
             maxDirectMemory = Runtime.getRuntime().maxMemory();
             logger.debug("maxDirectMemory: {} bytes (maybe)", maxDirectMemory);
         } else {
@@ -1520,6 +1563,7 @@ public final class PlatformDependent {
     /**
      * Adds only those classifier strings to <tt>dest</tt> which are present in <tt>allowed</tt>.
      *
+     * 增加 允许的classifier string 到 dest(标识允许的 分类器)字符串 ...
      * @param allowed          allowed classifiers
      * @param dest             destination set
      * @param maybeClassifiers potential classifiers to add

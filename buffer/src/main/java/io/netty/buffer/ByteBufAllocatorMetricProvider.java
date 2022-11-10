@@ -15,10 +15,15 @@
  */
 package io.netty.buffer;
 
+/**
+ *  ByteBuf 分配器度量标准提供器 ..
+ */
 public interface ByteBufAllocatorMetricProvider {
 
     /**
      * Returns a {@link ByteBufAllocatorMetric} for a {@link ByteBufAllocator}.
+     *
+     * 返回一个ByteBufAllocator的 度量标准
      */
     ByteBufAllocatorMetric metric();
 }

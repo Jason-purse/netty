@@ -17,6 +17,8 @@ package io.netty.util.internal;
 
 /**
  * Counter for long.
+ *
+ * long 计数器(利用了高并发特性,例如 LongAdder / AtomicLong)
  */
 public interface LongCounter {
     void add(long delta);

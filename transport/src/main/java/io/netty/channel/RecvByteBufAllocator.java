@@ -83,18 +83,28 @@ public interface RecvByteBufAllocator {
          * occurs. If a negative value is seen it is expected to be return on the next call to
          * {@link #lastBytesRead()}. A negative value will signal a termination condition enforced externally
          * to this class and is not required to be enforced in {@link #continueReading()}.
+         *
+         *  设置上一次读取操作已经读取了多少字节 ..
+         *  这用来增加已经有多少字节被读取了 ...
+         * @param bytes ... 从前面读取操作读取的字节数 .. 这也许是一个负数(如果发生了读取异常),
+         *              如果是一个负数( 那么下一次调用lastBytesRead()将会返回期待的值 负数),
+         *              一个负数将会触发一个中断条件(强制外力为这个类标识) 并且不需要强制在 #continueReading()中执行 ..
          */
         void lastBytesRead(int bytes);
 
         /**
          * Get the amount of bytes for the previous read operation.
          * @return The amount of bytes for the previous read operation.
+         *
+         * 返回之前读取操作的字节数量
          */
         int lastBytesRead();
 
         /**
          * Set how many bytes the read operation will (or did) attempt to read.
          * @param bytes How many bytes the read operation will (or did) attempt to read.
+         *
+         *  设置此次读操作将尝试或者真的读取的字节数量 ...
          */
         void attemptedBytesRead(int bytes);
 

@@ -41,18 +41,23 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     private static final int DEFAULT_NUM_HEAP_ARENA;
     private static final int DEFAULT_NUM_DIRECT_ARENA;
 
-    private static final int DEFAULT_PAGE_SIZE;
+    private static final int DEFAULT_PAGE_SIZE; // 一般来说都是 8KB(但是有些系统最小单位是 4kB)
     private static final int DEFAULT_MAX_ORDER; // 8192 << 9 = 4 MiB per chunk
     private static final int DEFAULT_SMALL_CACHE_SIZE;
     private static final int DEFAULT_NORMAL_CACHE_SIZE;
     static final int DEFAULT_MAX_CACHED_BUFFER_CAPACITY;
     private static final int DEFAULT_CACHE_TRIM_INTERVAL;
     private static final long DEFAULT_CACHE_TRIM_INTERVAL_MILLIS;
+
+    // 为所有线程使用缓存??
     private static final boolean DEFAULT_USE_CACHE_FOR_ALL_THREADS;
+    // 默认是直接内容缓存分配??
     private static final int DEFAULT_DIRECT_MEMORY_CACHE_ALIGNMENT;
     static final int DEFAULT_MAX_CACHED_BYTEBUFFERS_PER_CHUNK;
 
     private static final int MIN_PAGE_SIZE = 4096;
+
+    // netty 认为最大的块 应该是 2个G ..
     private static final int MAX_CHUNK_SIZE = (int) (((long) Integer.MAX_VALUE + 1) / 2);
 
     private static final int CACHE_NOT_USED = 0;
@@ -65,6 +70,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     };
 
     static {
+        // 默认分配 ???
         int defaultAlignment = SystemPropertyUtil.getInt(
                 "io.netty.allocator.directMemoryCacheAlignment", 0);
         int defaultPageSize = SystemPropertyUtil.getInt("io.netty.allocator.pageSize", 8192);
@@ -79,18 +85,24 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
         DEFAULT_PAGE_SIZE = defaultPageSize;
         DEFAULT_DIRECT_MEMORY_CACHE_ALIGNMENT = defaultAlignment;
 
+        // 一个chunk 包含9页(这是netty的默认值) ...
         int defaultMaxOrder = SystemPropertyUtil.getInt("io.netty.allocator.maxOrder", 9);
         Throwable maxOrderFallbackCause = null;
         try {
             validateAndCalculateChunkSize(DEFAULT_PAGE_SIZE, defaultMaxOrder);
         } catch (Throwable t) {
             maxOrderFallbackCause = t;
+            // 超出,则设置 9
+            // 其实这里有一定的问题, 例如我们的PageSize 过大 ...
+            // 这里仅仅限制了一个Chunk 有多少 ..页
             defaultMaxOrder = 9;
         }
         DEFAULT_MAX_ORDER = defaultMaxOrder;
 
         // Determine reasonable default for nHeapArena and nDirectArena.
         // Assuming each arena has 3 chunks, the pool should not consume more than 50% of max memory.
+        // 决定 / 确定 nHeapArena 和 nDirectArena的默认值 ..
+        // 假设每一个arena 有三个chunks,这个池子不能够消耗超过 最大内存的50% ...
         final Runtime runtime = Runtime.getRuntime();
 
         /*
@@ -99,20 +111,26 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
          * allocation and de-allocation needs to be synchronized on the PoolArena.
          *
          * See https://github.com/netty/netty/issues/3888.
+         *
+         * 我们使用 2 * processor count(作为默认策略,去减少协商，因为在NIO  / EPOLL 中同样也使用了 2* processor count的事件循环)
+         * 如果我们选择较小的数字，我们将遇到热点，因为分配和取消分配需要在 PoolArena 上同步。
          */
         final int defaultMinNumArena = NettyRuntime.availableProcessors() * 2;
+        // 算出默认块 ..
         final int defaultChunkSize = DEFAULT_PAGE_SIZE << DEFAULT_MAX_ORDER;
         DEFAULT_NUM_HEAP_ARENA = Math.max(0,
                 SystemPropertyUtil.getInt(
                         "io.netty.allocator.numHeapArenas",
                         (int) Math.min(
                                 defaultMinNumArena,
+                                // 仅仅使用 6分之一的内存 ..
                                 runtime.maxMemory() / defaultChunkSize / 2 / 3)));
         DEFAULT_NUM_DIRECT_ARENA = Math.max(0,
                 SystemPropertyUtil.getInt(
                         "io.netty.allocator.numDirectArenas",
                         (int) Math.min(
                                 defaultMinNumArena,
+                                // 同样使用 6分之一的内存 ..
                                 PlatformDependent.maxDirectMemory() / defaultChunkSize / 2 / 3)));
 
         // cache sizes
@@ -145,6 +163,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
                     "io.netty.allocator.cacheTrimIntervalMillis", 0);
         }
 
+        // 默认是false ...
         DEFAULT_USE_CACHE_FOR_ALL_THREADS = SystemPropertyUtil.getBoolean(
                 "io.netty.allocator.useCacheForAllThreads", false);
 
@@ -178,6 +197,7 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
         }
     }
 
+    // Default ..
     public static final PooledByteBufAllocator DEFAULT =
             new PooledByteBufAllocator(PlatformDependent.directBufferPreferred());
 
@@ -187,6 +207,8 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     private final int normalCacheSize;
     private final List<PoolArenaMetric> heapArenaMetrics;
     private final List<PoolArenaMetric> directArenaMetrics;
+
+    // 线程缓存
     private final PoolThreadLocalCache threadCache;
     private final int chunkSize;
     private final PooledByteBufAllocatorMetric metric;
@@ -197,7 +219,11 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
 
     @SuppressWarnings("deprecation")
     public PooledByteBufAllocator(boolean preferDirect) {
-        this(preferDirect, DEFAULT_NUM_HEAP_ARENA, DEFAULT_NUM_DIRECT_ARENA, DEFAULT_PAGE_SIZE, DEFAULT_MAX_ORDER);
+        this(preferDirect,
+                DEFAULT_NUM_HEAP_ARENA,
+                DEFAULT_NUM_DIRECT_ARENA,
+                DEFAULT_PAGE_SIZE,
+                DEFAULT_MAX_ORDER);
     }
 
     @SuppressWarnings("deprecation")
@@ -353,14 +379,19 @@ public class PooledByteBufAllocator extends AbstractByteBufAllocator implements 
     }
 
     private static int validateAndCalculateChunkSize(int pageSize, int maxOrder) {
+        // 最大 14 ..
         if (maxOrder > 14) {
             throw new IllegalArgumentException("maxOrder: " + maxOrder + " (expected: 0-14)");
         }
 
+        // 确保最终的chunkSize 不会移除 ...
         // Ensure the resulting chunkSize does not overflow.
         int chunkSize = pageSize;
         for (int i = maxOrder; i > 0; i --) {
+            // MAX_CHUNK_SIZE 尺寸还大于 14个页所加累加的内容size
             if (chunkSize > MAX_CHUNK_SIZE / 2) {
+
+                // 防御性编程 ..
                 throw new IllegalArgumentException(String.format(
                         "pageSize (%d) << maxOrder (%d) must not exceed %d", pageSize, maxOrder, MAX_CHUNK_SIZE));
             }
