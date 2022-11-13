@@ -142,6 +142,8 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
     @Override
     public boolean isInputShutdown() {
+        // 判断  socket 是否已经关闭了输入
+        // 第一个条件是如果读取一半而连接关闭,则是true  或者管道已经失活
         return javaChannel().socket().isInputShutdown() || !isActive();
     }
 

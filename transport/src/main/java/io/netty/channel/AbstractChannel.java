@@ -442,6 +442,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         // 管道输出Buffer ...
         private volatile ChannelOutboundBuffer outboundBuffer = new ChannelOutboundBuffer(AbstractChannel.this);
         private RecvByteBufAllocator.Handle recvHandle;
+        // 在刷新中
         private boolean inFlush0;
         /**
          * true if the channel has never been registered, false otherwise
@@ -760,6 +761,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
             this.outboundBuffer = null; // Disallow adding any messages and flushes to outboundBuffer.
             Executor closeExecutor = prepareToClose();
+
+            // 如果用于关闭的执行器不为空 ...
             if (closeExecutor != null) {
                 closeExecutor.execute(new Runnable() {
                     @Override
@@ -769,14 +772,21 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                             doClose0(promise);
                         } finally {
                             // Call invokeLater so closeAndDeregister is executed in the EventLoop again!
+                            // 调用 invokeLater(这样 closeAndDeregister 能够再次在事件循环中执行) ...
                             invokeLater(new Runnable() {
                                 @Override
                                 public void run() {
+                                    // 表示有一些消息
                                     if (outboundBuffer != null) {
                                         // Fail all the queued messages
+                                        // 失败刷新所有入队消息 ..
                                         outboundBuffer.failFlushed(cause, notify);
+                                        // 并且关闭 ..
+//                                        这意味着消息buffer关闭结果,代表着channel的关闭结果
                                         outboundBuffer.close(closeCause);
                                     }
+
+                                    // 并且触发ChannelInactive / Deregister ....
                                     fireChannelInactiveAndDeregister(wasActive);
                                 }
                             });
@@ -794,7 +804,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         outboundBuffer.close(closeCause);
                     }
                 }
+                // 在刷新中 ...
                 if (inFlush0) {
+                    // 则之后触发 ...
                     invokeLater(new Runnable() {
                         @Override
                         public void run() {
@@ -819,6 +831,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         }
 
         private void fireChannelInactiveAndDeregister(final boolean wasActive) {
+            // 是否触发ChannelInactive ..(如果以前是激活的,现在未激活) ...
             deregister(voidPromise(), wasActive && !isActive());
         }
 
@@ -845,6 +858,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 return;
             }
 
+            // 未注册(一旦注册,状态将不会改变,暂且这样认为) ...
             if (!registered) {
                 safeSetSuccess(promise);
                 return;
@@ -857,16 +871,23 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             // the deregister operation this could lead to have a handler invoked by different EventLoop and so
             // threads.
             //
+            // 由于一个用户可能可以从任何在ChannelPipeline中处理的任何方法调用 deregister() ...
+            // 这需要确保这个实际的操作在之后执行,这是必要的(举个例子,我们也许在ByteToMessageDecoder中调用了callDecode(..),并且仍然尝试在旧的事件循环处理
+            // 但是用户已经将管道注册到新的事件循环中,没有延迟,这个deregister 操作可能导致一个handler在不同的事件循环上进行执行(也就是线程) ...
+            // 有了延迟操作,在注册到新的事件循环时(channel所包含的事件循环将会发生变化) ... 不会导致由于任务引起所抓取的事件循环不同 ...
             // See:
             // https://github.com/netty/netty/issues/4435
             invokeLater(new Runnable() {
                 @Override
                 public void run() {
                     try {
+                        // 尝试 doDeregister() ...
                         doDeregister();
                     } catch (Throwable t) {
                         logger.warn("Unexpected exception occurred while deregistering a channel.", t);
                     } finally {
+
+                        // 触发 ChannelInactive ...
                         if (fireChannelInactive) {
                             pipeline.fireChannelInactive();
                         }
@@ -874,6 +895,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         // an open channel.  Their doDeregister() calls close(). Consequently,
                         // close() calls deregister() again - no need to fire channelUnregistered, so check
                         // if it was registered.
+                        // 某些传输,例如 local以及 AIO 不允许一个open 管道的 注销 ..
+                        // 它们的doDeregister调用 close() , 因此,close() 再次调用 deregister(),不需要触发channelUnRegistered,
+                        // 因此检查它是否已经注册
                         if (registered) {
                             registered = false;
                             pipeline.fireChannelUnregistered();
@@ -1117,6 +1141,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
          * caller must call the {@link Executor#execute(Runnable)} method with a task that calls
          * {@link #doClose()} on the returned {@link Executor}. If this method returns {@code null},
          * {@link #doClose()} must be called from the caller thread. (i.e. {@link EventLoop})
+         *
+         *
+         * 准备去关闭Channel ..
+         * 如果这个方法返回了一个执行器,那么这个调用者必须使用返回的Executor ..调用Executor#execute ...(runnable),这个任务必须调用 doClose() ...
+         * 如果这个方法返回空,则doClose()必须从调用者线程进行调用(例如 EventLoop) ...
          */
         protected Executor prepareToClose() {
             return null;

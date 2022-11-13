@@ -124,6 +124,8 @@ public interface RecvByteBufAllocator {
 
         /**
          * The read has completed.
+         *
+         * 读取已经完成 ...
          */
         void readComplete();
     }

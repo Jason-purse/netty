@@ -69,8 +69,11 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     /**
      * The future of the current connection attempt.  If not null, subsequent
      * connection attempts will fail.
+     *
+     * 当前连接尝试的future,如果不为空,则后续的连接尝试将会失败 ...
      */
     private ChannelPromise connectPromise;
+    // 连接超时Future
     private Future<?> connectTimeoutFuture;
     private SocketAddress requestedRemoteAddress;
 
@@ -209,6 +212,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         /**
          * Finish connect
+         * 完成连接 ..
          */
         void finishConnect();
 
@@ -315,15 +319,20 @@ public abstract class AbstractNioChannel extends AbstractChannel {
             boolean active = isActive();
 
             // trySuccess() will return false if a user cancelled the connection attempt.
+            // 如果用户已经取消了连接尝试, 那么将返回false ..
             boolean promiseSet = promise.trySuccess();
 
             // Regardless if the connection attempt was cancelled, channelActive() event should be triggered,
             // because what happened is what happened.
+            // 不管连接尝试是否取消,channelActive 事件都应该被触发 ..(但是需要管道目前还处于未关闭状态) ..
+            // 因为该发生的一定会发生
             if (!wasActive && active) {
                 pipeline().fireChannelActive();
             }
 
             // If a user cancelled the connection attempt, close the channel, which is followed by channelInactive().
+            // 如果管道取消了连接尝试 ...
+            // 则关闭管道 ...
             if (!promiseSet) {
                 close(voidPromise());
             }
@@ -536,6 +545,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         Future<?> future = connectTimeoutFuture;
         if (future != null) {
+            // 不打断取消 ...
             future.cancel(false);
             connectTimeoutFuture = null;
         }

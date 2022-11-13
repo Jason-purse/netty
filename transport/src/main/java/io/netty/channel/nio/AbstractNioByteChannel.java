@@ -194,9 +194,12 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                     byteBuf = null;
                 } while (allocHandle.continueReading());
 
+                // 读取完成 ..
                 allocHandle.readComplete();
-                pipeline.fireChannelReadComplete(); // 这里执行读完成 ...
 
+                pipeline.fireChannelReadComplete(); // 这里执行读完成 回调...
+
+                // 如果应该关闭 ..
                 if (close) {
                     closeOnRead(pipeline);
                 }
